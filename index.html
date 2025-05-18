@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Virtual Makeup</title>
+    <!-- Add MediaPipe dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #ff6b6b;
+            margin: 0;
+        }
+        .app-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .webcam-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        #webcam {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+            background-color: #000;
+        }
+        #output_canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+        .controls-container {
+            flex: 1;
+            min-width: 320px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        button {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #ff5252;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .feature-selector {
+            margin: 20px 0;
+        }
+        .color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 10px 0;
+            gap: 10px;
+        }
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        .color-option:hover {
+            transform: scale(1.2);
+        }
+        .color-option.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #ff6b6b;
+        }
+        .status-message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            display: none;
+        }
+        .status-message.error {
+            background-color: #ffebee;
+            color: #c62828;
+            display: block;
+        }
+        .status-message.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            display: block;
+        }
+        .hidden {
+            display: none !important;
+        }
+        #downloadBtn {
+            background-color: #43a047;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #ff6b6b;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin: 10px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .makeup-toggle {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Real-Time Virtual Makeup</h1>
+        <p>Try on virtual makeup in real-time!</p>
+    </header>
+
+    <div class="container">
+        <div class="app-container">
+            <div class="webcam-container">
+                <div class="video-wrapper">
+                    <video id="webcam" autoplay playsinline></video>
+                    <canvas id="output_canvas"></canvas>
+                </div>
+                <div class="camera-controls">
+                    <button id="startCameraBtn">Start Camera</button>
+                    <button id="downloadBtn" disabled>Take Screenshot</button>
+                </div>
+                <div class="status-message" id="statusMessage"></div>
+                <div class="loader" id="loader"></div>
+            </div>
+
+            <div class="controls-container">
+                <h2>Makeup Options</h2>
+                
+                <!-- Makeup Toggles -->
+                <div class="makeup-toggle">
+                    <input type="checkbox" id="lipsToggle" checked>
+                    <label for="lipsToggle">Lipstick</label>
+                </div>
+                <div class="makeup-toggle">
+                    <input type="checkbox" id="eyebrowsToggle" checked>
+                    <label for="eyebrowsToggle">Eyebrows</label>
+                </div>
+                <div class="makeup-toggle">
+                    <input type="checkbox" id="cheeksToggle" checked>
+                    <label for="cheeksToggle">Cheeks</label>
+                </div>
+                <div class="makeup-toggle">
+                    <input type="checkbox" id="earsToggle" checked>
+                    <label for="earsToggle">Earrings</label>
+                </div>
+
+                <!-- Color Palettes -->
+                <div class="feature-selector">
+                    <h3>Lipstick Color</h3>
+                    <div id="lipsColors" class="color-palette">
+                        <div class="color-option selected" style="background-color: #D4122F;" data-color="red"></div>
+                        <div class="color-option" style="background-color: #FF69B4;" data-color="pink"></div>
+                        <div class="color-option" style="background-color: #D8A799;" data-color="nude"></div>
+                    </div>
+
+                    <h3>Eyebrows Color</h3>
+                    <div id="eyebrowsColors" class="color-palette">
+                        <div class="color-option selected" style="background-color: #3B3B3B;" data-color="black"></div>
+                        <div class="color-option" style="background-color: #654321;" data-color="brown"></div>
+                        <div class="color-option" style="background-color: #B87333;" data-color="blonde"></div>
+                    </div>
+
+                    <h3>Cheeks Color</h3>
+                    <div id="cheeksColors" class="color-palette">
+                        <div class="color-option selected" style="background-color: #FF7F7F;" data-color="pink"></div>
+                        <div class="color-option" style="background-color: #FFAA7F;" data-color="peach"></div>
+                        <div class="color-option" style="background-color: #CD7F32;" data-color="bronze"></div>
+                    </div>
+
+                    <h3>Earrings Style</h3>
+                    <div id="earsColors" class="color-palette">
+                        <div class="color-option selected" style="background-color: #FFD700;" data-color="gold"></div>
+                        <div class="color-option" style="background-color: #C0C0C0;" data-color="silver"></div>
+                        <div class="color-option" style="background-color: #E6E6FA;" data-color="diamond"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // DOM Elements
+            const video = document.getElementById('webcam');
+            const outputCanvas = document.getElementById('output_canvas');
+            const startCameraBtn = document.getElementById('startCameraBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const statusMessage = document.getElementById('statusMessage');
+            const loader = document.getElementById('loader');
+            
+            // Canvas context
+            const outputCtx = outputCanvas.getContext('2d');
+            
+            // Makeup state
+            let currentColors = {
+                lips: 'red',
+                eyebrows: 'black',
+                cheeks: 'pink',
+                ears: 'gold'
+            };
+
+            let makeupToggles = {
+                lips: true,
+                eyebrows: true,
+                cheeks: true,
+                ears: true
+            };
+            
+            // Face detection state
+            let faceMesh = null;
+            let camera = null;
+            
+            function onResults(results) {
+                if (results.multiFaceLandmarks) {
+                    outputCanvas.width = video.videoWidth;
+                    outputCanvas.height = video.videoHeight;
+                    outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+                    outputCtx.drawImage(results.image, 0, 0, outputCanvas.width, outputCanvas.height);
+
+                    if (results.multiFaceLandmarks.length > 0) {
+                        const landmarks = results.multiFaceLandmarks[0];
+                        
+                        // Apply each makeup feature if toggled on
+                        if (makeupToggles.lips) applyLipsMakeup(landmarks, currentColors.lips);
+                        if (makeupToggles.eyebrows) applyEyebrowsMakeup(landmarks, currentColors.eyebrows);
+                        if (makeupToggles.cheeks) applyCheeksMakeup(landmarks, currentColors.cheeks);
+                        if (makeupToggles.ears) applyEarsMakeup(landmarks, currentColors.ears);
+                        
+                        downloadBtn.disabled = false;
+                    }
+                }
+            }
+            
+            // Initialize MediaPipe Face Mesh
+            async function initializeFaceMesh() {
+                try {
+                    showStatus('Loading face detection...', 'success');
+                    loader.style.display = 'block';
+
+                    faceMesh = new FaceMesh({
+                        locateFile: (file) => {
+                            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                        }
+                    });
+
+                    await faceMesh.initialize();
+
+                    faceMesh.setOptions({
+                        maxNumFaces: 1,
+                        refineLandmarks: true,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    faceMesh.onResults(onResults);
+
+                    showStatus('Face detection ready!', 'success');
+                    return true;
+                } catch (error) {
+                    console.error('Error initializing face detection:', error);
+                    showStatus('Error initializing face detection. Please try again.', 'error');
+                    return false;
+                } finally {
+                    loader.style.display = 'none';
+                }
+            }
+            
+            // Start camera
+            startCameraBtn.addEventListener('click', async () => {
+                try {
+                    showStatus('Starting camera...', 'success');
+                    loader.style.display = 'block';
+
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            facingMode: 'user'
+                        }
+                    });
+                    
+                    video.srcObject = stream;
+                    await video.play();
+
+                    // Set canvas sizes
+                    outputCanvas.width = video.videoWidth;
+                    outputCanvas.height = video.videoHeight;
+
+                    await initializeFaceMesh();
+
+                    camera = new Camera(video, {
+                        onFrame: async () => {
+                            if (faceMesh) {
+                                await faceMesh.send({ image: video });
+                            }
+                        },
+                        width: 640,
+                        height: 480
+                    });
+
+                    await camera.start();
+                    startCameraBtn.disabled = true;
+                    showStatus('Camera ready!', 'success');
+                    loader.style.display = 'none';
+                    
+                } catch (error) {
+                    console.error('Error starting camera:', error);
+                    showStatus(`Error starting camera: ${error.message}`, 'error');
+                    loader.style.display = 'none';
+                }
+            });
+            
+            // Apply lipstick
+            function applyLipsMakeup(landmarks, color) {
+                const outerLipPoints = [
+                    61, 146, 91, 181, 84, 17,
+                    314, 405, 321, 375, 291,
+                    308, 324, 318, 402, 317, 14,
+                    87, 178, 88, 95,
+                ];
+
+                const innerLipPoints = [
+                    78, 95, 88, 178, 87, 14,
+                    317, 402, 318, 324, 308,
+                    415, 310, 311, 312, 13, 82, 81, 80, 191
+                ];
+
+                const colors = {
+                    'red': [212, 18, 47],
+                    'pink': [255, 105, 180],
+                    'nude': [210, 180, 140]
+                };
+                const selectedColor = colors[color] || colors.red;
+                
+                outputCtx.save();
+                
+                // Draw outer lip
+                outputCtx.beginPath();
+                outerLipPoints.forEach((index, i) => {
+                    const point = landmarks[index];
+                    const x = point.x * outputCanvas.width;
+                    const y = point.y * outputCanvas.height;
+                    
+                    if (i === 0) outputCtx.moveTo(x, y);
+                    else outputCtx.lineTo(x, y);
+                });
+                outputCtx.closePath();
+                outputCtx.fillStyle = `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.7)`;
+                outputCtx.fill();
+
+                // Draw inner lip
+                outputCtx.beginPath();
+                innerLipPoints.forEach((index, i) => {
+                    const point = landmarks[index];
+                    const x = point.x * outputCanvas.width;
+                    const y = point.y * outputCanvas.height;
+                    
+                    if (i === 0) outputCtx.moveTo(x, y);
+                    else outputCtx.lineTo(x, y);
+                });
+                outputCtx.closePath();
+                outputCtx.fillStyle = `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.5)`;
+                outputCtx.fill();
+                
+                outputCtx.restore();
+            }
+            
+            // Apply eyebrow makeup
+            function applyEyebrowsMakeup(landmarks, color) {
+                const leftEyebrowPoints = [276, 283, 282, 295, 285, 300, 293, 334];
+                const rightEyebrowPoints = [46, 53, 52, 65, 55, 70, 63, 105];
+                
+                const colors = {
+                    'black': [0, 0, 0],
+                    'brown': [70, 50, 23],
+                    'blonde': [171, 149, 111]
+                };
+                const selectedColor = colors[color] || colors.black;
+                
+                outputCtx.save();
+                outputCtx.lineWidth = 3;
+                outputCtx.strokeStyle = `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.8)`;
+                
+                // Draw left eyebrow
+                outputCtx.beginPath();
+                leftEyebrowPoints.forEach((index, i) => {
+                    const point = landmarks[index];
+                    const x = point.x * outputCanvas.width;
+                    const y = point.y * outputCanvas.height;
+                    
+                    if (i === 0) outputCtx.moveTo(x, y);
+                    else outputCtx.lineTo(x, y);
+                });
+                outputCtx.stroke();
+                
+                // Draw right eyebrow
+                outputCtx.beginPath();
+                rightEyebrowPoints.forEach((index, i) => {
+                    const point = landmarks[index];
+                    const x = point.x * outputCanvas.width;
+                    const y = point.y * outputCanvas.height;
+                    
+                    if (i === 0) outputCtx.moveTo(x, y);
+                    else outputCtx.lineTo(x, y);
+                });
+                outputCtx.stroke();
+                
+                outputCtx.restore();
+            }
+            
+            // Apply blush
+            function applyCheeksMakeup(landmarks, color) {
+                const leftCheekPoints = [117, 118, 119, 123, 147];
+                const rightCheekPoints = [346, 347, 348, 352, 376];
+                
+                function calculateCenter(points) {
+                    const center = { x: 0, y: 0 };
+                    points.forEach(index => {
+                        const point = landmarks[index];
+                        center.x += point.x;
+                        center.y += point.y;
+                    });
+                    center.x /= points.length;
+                    center.y /= points.length;
+                    return center;
+                }
+                
+                const leftCheekCenter = calculateCenter(leftCheekPoints);
+                const rightCheekCenter = calculateCenter(rightCheekPoints);
+                
+                const colors = {
+                    'pink': [255, 127, 180],
+                    'peach': [255, 186, 169],
+                    'bronze': [181, 133, 71]
+                };
+                const selectedColor = colors[color] || colors.pink;
+                
+                outputCtx.save();
+                
+                const radius = outputCanvas.width * 0.08;
+                
+                ['left', 'right'].forEach(side => {
+                    const center = side === 'left' ? leftCheekCenter : rightCheekCenter;
+                    const x = center.x * outputCanvas.width;
+                    const y = (center.y * outputCanvas.height) + (outputCanvas.height * 0.02);
+                    
+                    const gradient = outputCtx.createRadialGradient(x, y, radius * 0.3, x, y, radius);
+                    gradient.addColorStop(0, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.3)`);
+                    gradient.addColorStop(0.6, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.15)`);
+                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    
+                    outputCtx.fillStyle = gradient;
+                    outputCtx.beginPath();
+                    outputCtx.arc(x, y, radius, 0, Math.PI * 2);
+                    outputCtx.fill();
+                });
+                
+                outputCtx.restore();
+            }
+            
+            // Apply earrings
+            function applyEarsMakeup(landmarks, style) {
+                const leftEarPoint = landmarks[234];
+                const rightEarPoint = landmarks[454];
+                
+                const colors = {
+                    'gold': [255, 215, 0],
+                    'silver': [192, 192, 192],
+                    'diamond': [255, 255, 255]
+                };
+                const selectedColor = colors[style] || colors.gold;
+                
+                outputCtx.save();
+                
+                [leftEarPoint, rightEarPoint].forEach(point => {
+                    const x = point.x * outputCanvas.width;
+                    const y = point.y * outputCanvas.height;
+                    const size = outputCanvas.width * 0.015;
+                    
+                    // Main earring
+                    outputCtx.beginPath();
+                    outputCtx.arc(x, y, size, 0, Math.PI * 2);
+                    outputCtx.fillStyle = `rgb(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]})`;
+                    outputCtx.fill();
+                    
+                    // Highlight
+                    outputCtx.beginPath();
+                    outputCtx.arc(x - size/3, y - size/3, size/3, 0, Math.PI * 2);
+                    outputCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    outputCtx.fill();
+                });
+                
+                outputCtx.restore();
+            }
+            
+            // Download screenshot
+            downloadBtn.addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.download = `virtual-makeup-${Date.now()}.png`;
+                link.href = outputCanvas.toDataURL('image/png');
+                link.click();
+            });
+            
+            // Show status message
+            function showStatus(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.className = 'status-message';
+                if (type) {
+                    statusMessage.classList.add(type);
+                }
+                
+                if (type === 'success') {
+                    setTimeout(() => {
+                        statusMessage.classList.remove('success');
+                    }, 5000);
+                }
+            }
+            
+            // Setup makeup toggles
+            document.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
+                toggle.addEventListener('change', (e) => {
+                    const feature = e.target.id.replace('Toggle', '');
+                    makeupToggles[feature.toLowerCase()] = e.target.checked;
+                });
+            });
+            
+            // Setup color selection
+            document.querySelectorAll('.color-option').forEach(colorOption => {
+                colorOption.addEventListener('click', () => {
+                    const paletteId = colorOption.parentElement.id;
+                    const feature = paletteId.replace('Colors', '');
+                    
+                    currentColors[feature] = colorOption.dataset.color;
+                    
+                    document.querySelectorAll(`#${paletteId} .color-option`).forEach(option => {
+                        option.classList.remove('selected');
+                    });
+                    colorOption.classList.add('selected');
+                });
+            });
+        });
+    </script>
+</body>
+</html> 
