@@ -173,6 +173,20 @@
             min-width: 40px;
             text-align: right;
         }
+        .wing-control {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .wing-slider {
+            flex: 1;
+            max-width: 150px;
+        }
+        .wing-value {
+            min-width: 40px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -211,6 +225,11 @@
                                 <label for="upperEyelinerOpacity">Opacity:</label>
                                 <input type="range" id="upperEyelinerOpacity" min="0" max="100" value="50" class="opacity-slider">
                                 <span class="opacity-value">50%</span>
+                            </div>
+                            <div class="wing-control">
+                                <label for="wingLength">Wing Length:</label>
+                                <input type="range" id="wingLength" min="0" max="400" value="250" class="wing-slider">
+                                <span class="wing-value">250%</span>
                             </div>
                         </div>
                         <div>
@@ -294,6 +313,17 @@
                 kajal: 0.37,        // 37%
                 cheeks: 0.34        // 34%
             };
+            
+            let wingLength = 2.5; // Default wing length (250%)
+            let wingOpacity = 0.5; // Default wing opacity (50%)
+            
+            // Setup wing length control
+            document.getElementById('wingLength').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                wingLength = value / 100; // Convert percentage to multiplier
+                wingOpacity = makeupOpacity.upperEyeliner; // Keep wing opacity same as eyeliner
+                e.target.nextElementSibling.textContent = `${value}%`;
+            });
             
             // Face detection state
             let faceMesh = null;
@@ -441,21 +471,17 @@
                     const selectedKajalColor = colors[kajalColor] || colors.black;
 
                     // Define points specifically for upper eyeliner and lower kajal
-                    // Upper eyeliner points (using only upper eyelid points)
-                    // Left eye upper lid points (from inner to outer corner)
+                    // Upper eyeliner points (from inner to outer corner)
                     const leftUpperEyeliner = [362, 398, 384, 385, 386, 387, 388, 466];
-                    // Right eye upper lid points (from inner to outer corner)
                     const rightUpperEyeliner = [133, 173, 157, 158, 159, 160, 161, 246];
                     
-                    // Lower kajal points (using only lower eyelid points)
-                    // Left eye lower lid points (from inner to outer corner)
+                    // Lower kajal points (from inner to outer corner)
                     const leftKajal = [263, 249, 390, 373, 374, 380, 381, 382];
-                    // Right eye lower lid points (from inner to outer corner)
                     const rightKajal = [33, 7, 163, 144, 145, 153, 154, 155];
 
                     outputCtx.save();
 
-                    function drawUpperEyeliner(points, color) {
+                    function drawUpperEyeliner(points, color, isLeftEye) {
                         if (!points || points.length === 0) return;
 
                         const width = outputCanvas.width * 0.00168;
@@ -467,9 +493,11 @@
                         tempCanvas.width = outputCanvas.width;
                         tempCanvas.height = outputCanvas.height;
 
-                        // Draw main line with varying thickness
+                        // Draw main eyeliner first
                         tempCtx.beginPath();
                         let firstPoint = true;
+                        let lastPoint = null;
+                        let secondLastPoint = null;
 
                         // Only use the upper half of the points
                         const halfPoints = points.slice(0, points.length);
@@ -481,9 +509,12 @@
                             const x = point.x * outputCanvas.width;
                             const y = point.y * outputCanvas.height;
                             
+                            // Store last two points for wing calculation
+                            secondLastPoint = lastPoint;
+                            lastPoint = { x, y };
+                            
                             // Vary the curve based on position for more natural look
                             const position = i / halfPoints.length;
-                            // Adjust curve to be more pronounced in the middle for thicker line
                             const curve = position < 0.3 ? -width * 1.2 : 
                                         position < 0.7 ? -width * 2.4 : 
                                         -width * 1.2;
@@ -498,7 +529,6 @@
                                 const prevX = prevPoint.x * outputCanvas.width;
                                 const prevY = prevPoint.y * outputCanvas.height;
                                 
-                                // Adjust control points for smoother curve
                                 const cp1x = prevX + (x - prevX) * 0.4;
                                 const cp1y = prevY + curve * 0.8;
                                 const cp2x = x - (x - prevX) * 0.4;
@@ -508,84 +538,147 @@
                             }
                         }
 
-                        try {
-                            const startPoint = landmarks[halfPoints[0]];
-                            const endPoint = landmarks[halfPoints[halfPoints.length-1]];
-                            if (!startPoint || !endPoint) return;
+                        // Draw the main eyeliner with its own opacity
+                        const eyelinerGradient = tempCtx.createLinearGradient(
+                            0, landmarks[halfPoints[0]].y * outputCanvas.height,
+                            0, landmarks[halfPoints[halfPoints.length-1]].y * outputCanvas.height
+                        );
+                        eyelinerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                        eyelinerGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                        eyelinerGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                        eyelinerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
 
-                            // Create a more complex gradient for realistic look
-                            const gradient = tempCtx.createLinearGradient(
-                                0, startPoint.y * outputCanvas.height,
-                                0, endPoint.y * outputCanvas.height
-                            );
-                            // Adjust gradient stops for more natural fade with increased opacity
-                            gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
-                            gradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
-                            gradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
-                            gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                        tempCtx.strokeStyle = eyelinerGradient;
+                        tempCtx.lineWidth = width * 3.5;
+                        tempCtx.lineCap = 'round';
+                        tempCtx.lineJoin = 'round';
+                        tempCtx.stroke();
 
-                            tempCtx.strokeStyle = gradient;
-                            tempCtx.lineWidth = width * 3.5; // Increased from 2.5 to 3.5 for thicker line
-                            tempCtx.lineCap = 'round';
-                            tempCtx.lineJoin = 'round';
-                            tempCtx.stroke();
+                        // Draw inner line for eyeliner
+                        tempCtx.beginPath();
+                        firstPoint = true;
+                        for (let i = 0; i < halfPoints.length; i++) {
+                            const point = landmarks[halfPoints[i]];
+                            if (!point) continue;
+                            
+                            const x = point.x * outputCanvas.width;
+                            const y = point.y * outputCanvas.height;
+                            const position = i / halfPoints.length;
+                            const innerCurve = position < 0.3 ? -width * 0.6 : 
+                                             position < 0.7 ? -width * 1.0 : 
+                                             -width * 0.6;
 
-                            // Add a softer inner line with adjusted thickness
-                            tempCtx.beginPath();
-                            firstPoint = true;
-
-                            for (let i = 0; i < halfPoints.length; i++) {
-                                const point = landmarks[halfPoints[i]];
-                                if (!point) continue;
+                            if (firstPoint) {
+                                tempCtx.moveTo(x, y + innerCurve);
+                                firstPoint = false;
+                            } else {
+                                const prevPoint = landmarks[halfPoints[i-1]];
+                                if (!prevPoint) continue;
                                 
-                                const x = point.x * outputCanvas.width;
-                                const y = point.y * outputCanvas.height;
-                                const position = i / halfPoints.length;
-                                // Adjust inner curve to be more subtle but proportional to new thickness
-                                const innerCurve = position < 0.3 ? -width * 0.6 : 
-                                                 position < 0.7 ? -width * 1.0 : 
-                                                 -width * 0.6;
-
-                                if (firstPoint) {
-                                    tempCtx.moveTo(x, y + innerCurve);
-                                    firstPoint = false;
-                                } else {
-                                    const prevPoint = landmarks[halfPoints[i-1]];
-                                    if (!prevPoint) continue;
-                                    
-                                    const prevX = prevPoint.x * outputCanvas.width;
-                                    const prevY = prevPoint.y * outputCanvas.height;
-                                    
-                                    const cp1x = prevX + (x - prevX) * 0.4;
-                                    const cp1y = prevY + innerCurve * 0.8;
-                                    const cp2x = x - (x - prevX) * 0.4;
-                                    const cp2y = y + innerCurve * 0.8;
-                                    
-                                    tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + innerCurve);
-                                }
+                                const prevX = prevPoint.x * outputCanvas.width;
+                                const prevY = prevPoint.y * outputCanvas.height;
+                                
+                                const cp1x = prevX + (x - prevX) * 0.4;
+                                const cp1y = prevY + innerCurve * 0.8;
+                                const cp2x = x - (x - prevX) * 0.4;
+                                const cp2y = y + innerCurve * 0.8;
+                                
+                                tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + innerCurve);
                             }
-
-                            const innerGradient = tempCtx.createLinearGradient(
-                                0, startPoint.y * outputCanvas.height,
-                                0, endPoint.y * outputCanvas.height
-                            );
-                            // Adjust inner gradient with reduced opacity
-                            innerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
-                            innerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
-                            innerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
-
-                            tempCtx.strokeStyle = innerGradient;
-                            tempCtx.lineWidth = width * 1.4; // Increased from 1.2 to 1.4 for proportional inner line
-                            tempCtx.stroke();
-
-                            // Apply blur for softer look
-                            tempCtx.filter = 'blur(0.7px)'; // Slightly increased blur for thicker line
-                            tempCtx.globalCompositeOperation = 'source-over';
-                            outputCtx.drawImage(tempCanvas, 0, 0);
-                            tempCtx.filter = 'none';
-                        } catch (error) {
-                            console.error('Error drawing upper eyeliner:', error);
                         }
+
+                        const innerEyelinerGradient = tempCtx.createLinearGradient(
+                            0, landmarks[halfPoints[0]].y * outputCanvas.height,
+                            0, landmarks[halfPoints[halfPoints.length-1]].y * outputCanvas.height
+                        );
+                        innerEyelinerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+                        innerEyelinerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
+                        innerEyelinerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+
+                        tempCtx.strokeStyle = innerEyelinerGradient;
+                        tempCtx.lineWidth = width * 1.4;
+                        tempCtx.stroke();
+
+                        // Now draw the wing separately if needed
+                        if (lastPoint && secondLastPoint && wingLength > 0) {
+                            // Calculate wing direction and length
+                            const dx = lastPoint.x - secondLastPoint.x;
+                            const dy = lastPoint.y - secondLastPoint.y;
+                            const angle = Math.atan2(dy, dx);
+                            
+                            // Calculate offset for wing starting position
+                            const eyeWidth = Math.sqrt(dx * dx + dy * dy);
+                            const startOffset = eyeWidth * 0.15; // 15% of eye width offset
+                            
+                            // Calculate new starting point for wing
+                            const wingStartX = lastPoint.x + Math.cos(angle) * startOffset;
+                            const wingStartY = lastPoint.y + Math.sin(angle) * startOffset;
+                            
+                            // Adjust wing angle to align with eyeliner curve
+                            const wingAngle = isLeftEye ? 
+                                angle - Math.PI * 0.15 : // Reduced angle for left eye
+                                angle + Math.PI * 0.15;  // Reduced angle for right eye
+                            
+                            // Calculate wing length based on eye width with increased multiplier
+                            const wingSize = eyeWidth * wingLength * 1.2; // Added 1.2 multiplier for extra length
+                            
+                            // Calculate wing end point
+                            const wingEndX = wingStartX + Math.cos(wingAngle) * wingSize;
+                            const wingEndY = wingStartY + Math.sin(wingAngle) * wingSize;
+                            
+                            // Draw wing with its own gradient
+                            const wingGradient = tempCtx.createLinearGradient(
+                                wingStartX, wingStartY,
+                                wingEndX, wingEndY
+                            );
+                            wingGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity})`);
+                            wingGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity})`);
+                            wingGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.95})`);
+                            wingGradient.addColorStop(0.9, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.8})`);
+                            wingGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+                            
+                            // Draw the wing
+                            tempCtx.beginPath();
+                            tempCtx.moveTo(wingStartX, wingStartY);
+                            
+                            const controlX = wingStartX + (wingEndX - wingStartX) * 0.4 + (isLeftEye ? -width * 5 : width * 5);
+                            const controlY = wingStartY + (wingEndY - wingStartY) * 0.4;
+                            
+                            tempCtx.quadraticCurveTo(controlX, controlY, wingEndX, wingEndY);
+                            tempCtx.lineWidth = width * 3.5;
+                            tempCtx.strokeStyle = wingGradient;
+                            tempCtx.lineCap = 'round';
+                            tempCtx.stroke();
+                            
+                            // Draw inner wing line
+                            const innerWingGradient = tempCtx.createLinearGradient(
+                                wingStartX, wingStartY,
+                                wingEndX, wingEndY
+                            );
+                            innerWingGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.5})`);
+                            innerWingGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.5})`);
+                            innerWingGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.45})`);
+                            innerWingGradient.addColorStop(0.9, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.4})`);
+                            innerWingGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+                            
+                            tempCtx.beginPath();
+                            tempCtx.moveTo(wingStartX, wingStartY);
+                            tempCtx.quadraticCurveTo(
+                                controlX - (isLeftEye ? -width * 2 : width * 2),
+                                controlY,
+                                wingEndX,
+                                wingEndY
+                            );
+                            tempCtx.lineWidth = width * 1.4;
+                            tempCtx.strokeStyle = innerWingGradient;
+                            tempCtx.stroke();
+                        }
+
+                        // Apply blur for softer look
+                        tempCtx.filter = 'blur(0.7px)';
+                        tempCtx.globalCompositeOperation = 'source-over';
+                        outputCtx.drawImage(tempCanvas, 0, 0);
+                        tempCtx.filter = 'none';
                     }
 
                     function drawKajal(points, color) {
@@ -723,8 +816,8 @@
 
                     // Draw upper eyeliner if enabled
                     if (makeupToggles.upperEyeliner) {
-                        drawUpperEyeliner(leftUpperEyeliner, selectedEyelinerColor);
-                        drawUpperEyeliner(rightUpperEyeliner, selectedEyelinerColor);
+                        drawUpperEyeliner(leftUpperEyeliner, selectedEyelinerColor, true);  // true for left eye
+                        drawUpperEyeliner(rightUpperEyeliner, selectedEyelinerColor, false); // false for right eye
                     }
 
                     // Draw kajal if enabled
