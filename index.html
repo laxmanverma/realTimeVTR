@@ -159,6 +159,20 @@
         .makeup-toggle {
             margin: 10px 0;
         }
+        .opacity-control {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .opacity-slider {
+            flex: 1;
+            max-width: 150px;
+        }
+        .opacity-value {
+            min-width: 40px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -185,38 +199,55 @@
             <div class="controls-container">
                 <h2>Makeup Options</h2>
                 
-                <!-- Makeup Toggles -->
+                <!-- Eyelid and Eyeliner Toggles -->
                 <div class="makeup-toggle">
-                    <input type="checkbox" id="lipsToggle" checked>
-                    <label for="lipsToggle">Lipstick</label>
-                </div>
-                <div class="makeup-toggle">
-                    <input type="checkbox" id="eyebrowsToggle" checked>
-                    <label for="eyebrowsToggle">Eyebrows</label>
+                    <input type="checkbox" id="eyelinerToggle" checked>
+                    <label for="eyelinerToggle">Eyeliner</label>
+                    <div class="eyeliner-options" style="margin-left: 20px; margin-top: 5px;">
+                        <div>
+                            <input type="checkbox" id="upperEyelinerToggle" checked>
+                            <label for="upperEyelinerToggle">Upper Eyeliner</label>
+                            <div class="opacity-control">
+                                <label for="upperEyelinerOpacity">Opacity:</label>
+                                <input type="range" id="upperEyelinerOpacity" min="0" max="100" value="50" class="opacity-slider">
+                                <span class="opacity-value">50%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="kajalToggle" checked>
+                            <label for="kajalToggle">Kajal (Lower Eyeliner)</label>
+                            <div class="opacity-control">
+                                <label for="kajalOpacity">Opacity:</label>
+                                <input type="range" id="kajalOpacity" min="0" max="100" value="37" class="opacity-slider">
+                                <span class="opacity-value">37%</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="makeup-toggle">
                     <input type="checkbox" id="cheeksToggle" checked>
                     <label for="cheeksToggle">Cheeks</label>
-                </div>
-                <div class="makeup-toggle">
-                    <input type="checkbox" id="earsToggle" checked>
-                    <label for="earsToggle">Earrings</label>
+                    <div class="opacity-control">
+                        <label for="cheeksOpacity">Opacity:</label>
+                        <input type="range" id="cheeksOpacity" min="0" max="45" value="34" class="opacity-slider">
+                        <span class="opacity-value">34%</span>
+                    </div>
                 </div>
 
                 <!-- Color Palettes -->
                 <div class="feature-selector">
-                    <h3>Lipstick Color</h3>
-                    <div id="lipsColors" class="color-palette">
-                        <div class="color-option selected" style="background-color: #D4122F;" data-color="red"></div>
-                        <div class="color-option" style="background-color: #FF69B4;" data-color="pink"></div>
-                        <div class="color-option" style="background-color: #D8A799;" data-color="nude"></div>
+                    <h3>Eyeliner Color</h3>
+                    <div id="eyelinerColors" class="color-palette">
+                        <div class="color-option selected" style="background-color: #000000;" data-color="black"></div>
+                        <div class="color-option" style="background-color: #4B0082;" data-color="purple"></div>
+                        <div class="color-option" style="background-color: #8B4513;" data-color="brown"></div>
                     </div>
 
-                    <h3>Eyebrows Color</h3>
-                    <div id="eyebrowsColors" class="color-palette">
-                        <div class="color-option selected" style="background-color: #3B3B3B;" data-color="black"></div>
-                        <div class="color-option" style="background-color: #654321;" data-color="brown"></div>
-                        <div class="color-option" style="background-color: #B87333;" data-color="blonde"></div>
+                    <h3>Kajal Color</h3>
+                    <div id="kajalColors" class="color-palette">
+                        <div class="color-option selected" style="background-color: #000000;" data-color="black"></div>
+                        <div class="color-option" style="background-color: #4B0082;" data-color="purple"></div>
+                        <div class="color-option" style="background-color: #8B4513;" data-color="brown"></div>
                     </div>
 
                     <h3>Cheeks Color</h3>
@@ -224,13 +255,7 @@
                         <div class="color-option selected" style="background-color: #FF7F7F;" data-color="pink"></div>
                         <div class="color-option" style="background-color: #FFAA7F;" data-color="peach"></div>
                         <div class="color-option" style="background-color: #CD7F32;" data-color="bronze"></div>
-                    </div>
-
-                    <h3>Earrings Style</h3>
-                    <div id="earsColors" class="color-palette">
-                        <div class="color-option selected" style="background-color: #FFD700;" data-color="gold"></div>
-                        <div class="color-option" style="background-color: #C0C0C0;" data-color="silver"></div>
-                        <div class="color-option" style="background-color: #E6E6FA;" data-color="diamond"></div>
+                        <div class="color-option" style="background-color: #000000;" data-color="black"></div>
                     </div>
                 </div>
             </div>
@@ -252,17 +277,22 @@
             
             // Makeup state
             let currentColors = {
-                lips: 'red',
-                eyebrows: 'black',
-                cheeks: 'pink',
-                ears: 'gold'
+                eyeliner: 'black',
+                kajal: 'black',
+                cheeks: 'pink'
             };
 
             let makeupToggles = {
-                lips: true,
-                eyebrows: true,
-                cheeks: true,
-                ears: true
+                eyeliner: true,
+                upperEyeliner: true,
+                kajal: true,
+                cheeks: true
+            };
+
+            let makeupOpacity = {
+                upperEyeliner: 0.5,  // 50%
+                kajal: 0.37,        // 37%
+                cheeks: 0.34        // 34%
             };
             
             // Face detection state
@@ -270,7 +300,11 @@
             let camera = null;
             
             function onResults(results) {
-                if (results.multiFaceLandmarks) {
+                if (!results.multiFaceLandmarks || !results.image) {
+                    return;
+                }
+
+                try {
                     outputCanvas.width = video.videoWidth;
                     outputCanvas.height = video.videoHeight;
                     outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
@@ -280,13 +314,25 @@
                         const landmarks = results.multiFaceLandmarks[0];
                         
                         // Apply each makeup feature if toggled on
-                        if (makeupToggles.lips) applyLipsMakeup(landmarks, currentColors.lips);
-                        if (makeupToggles.eyebrows) applyEyebrowsMakeup(landmarks, currentColors.eyebrows);
-                        if (makeupToggles.cheeks) applyCheeksMakeup(landmarks, currentColors.cheeks);
-                        if (makeupToggles.ears) applyEarsMakeup(landmarks, currentColors.ears);
+                        if (makeupToggles.eyeliner) {
+                            try {
+                                applyEyelinerMakeup(landmarks, currentColors.eyeliner, currentColors.kajal);
+                            } catch (error) {
+                                console.error('Error applying eyeliner/kajal:', error);
+                            }
+                        }
+                        if (makeupToggles.cheeks) {
+                            try {
+                                applyCheeksMakeup(landmarks, currentColors.cheeks);
+                            } catch (error) {
+                                console.error('Error applying cheeks:', error);
+                            }
+                        }
                         
                         downloadBtn.disabled = false;
                     }
+                } catch (error) {
+                    console.error('Error in onResults:', error);
                 }
             }
             
@@ -369,187 +415,464 @@
                 }
             });
             
-            // Apply lipstick
-            function applyLipsMakeup(landmarks, color) {
-                const outerLipPoints = [
-                    61, 146, 91, 181, 84, 17,
-                    314, 405, 321, 375, 291,
-                    308, 324, 318, 402, 317, 14,
-                    87, 178, 88, 95,
-                ];
-
-                const innerLipPoints = [
-                    78, 95, 88, 178, 87, 14,
-                    317, 402, 318, 324, 308,
-                    415, 310, 311, 312, 13, 82, 81, 80, 191
-                ];
-
-                const colors = {
-                    'red': [212, 18, 47],
-                    'pink': [255, 105, 180],
-                    'nude': [210, 180, 140]
-                };
-                const selectedColor = colors[color] || colors.red;
+            // Setup opacity controls
+            document.querySelectorAll('.opacity-slider').forEach(slider => {
+                const feature = slider.id.replace('Opacity', '');
+                const valueDisplay = slider.nextElementSibling;
                 
-                outputCtx.save();
-                
-                // Draw outer lip
-                outputCtx.beginPath();
-                outerLipPoints.forEach((index, i) => {
-                    const point = landmarks[index];
-                    const x = point.x * outputCanvas.width;
-                    const y = point.y * outputCanvas.height;
-                    
-                    if (i === 0) outputCtx.moveTo(x, y);
-                    else outputCtx.lineTo(x, y);
+                slider.addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value);
+                    makeupOpacity[feature] = value / 100;
+                    valueDisplay.textContent = `${value}%`;
                 });
-                outputCtx.closePath();
-                outputCtx.fillStyle = `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.7)`;
-                outputCtx.fill();
-
-                // Draw inner lip
-                outputCtx.beginPath();
-                innerLipPoints.forEach((index, i) => {
-                    const point = landmarks[index];
-                    const x = point.x * outputCanvas.width;
-                    const y = point.y * outputCanvas.height;
-                    
-                    if (i === 0) outputCtx.moveTo(x, y);
-                    else outputCtx.lineTo(x, y);
-                });
-                outputCtx.closePath();
-                outputCtx.fillStyle = `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.5)`;
-                outputCtx.fill();
-                
-                outputCtx.restore();
-            }
+            });
             
-            // Apply eyebrow makeup
-            function applyEyebrowsMakeup(landmarks, color) {
-                const leftEyebrowPoints = [276, 283, 282, 295, 285, 300, 293, 334];
-                const rightEyebrowPoints = [46, 53, 52, 65, 55, 70, 63, 105];
-                
-                const colors = {
-                    'black': [0, 0, 0],
-                    'brown': [70, 50, 23],
-                    'blonde': [171, 149, 111]
-                };
-                const selectedColor = colors[color] || colors.black;
-                
-                outputCtx.save();
-                outputCtx.lineWidth = 3;
-                outputCtx.strokeStyle = `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.8)`;
-                
-                // Draw left eyebrow
-                outputCtx.beginPath();
-                leftEyebrowPoints.forEach((index, i) => {
-                    const point = landmarks[index];
-                    const x = point.x * outputCanvas.width;
-                    const y = point.y * outputCanvas.height;
+            // Apply eyeliner and kajal
+            function applyEyelinerMakeup(landmarks, eyelinerColor, kajalColor) {
+                if (!landmarks || !makeupToggles.upperEyeliner && !makeupToggles.kajal) return;
+
+                try {
+                    const colors = {
+                        'black': [0, 0, 0],
+                        'purple': [75, 0, 130],
+                        'brown': [139, 69, 19]
+                    };
+                    const selectedEyelinerColor = colors[eyelinerColor] || colors.black;
+                    const selectedKajalColor = colors[kajalColor] || colors.black;
+
+                    // Define points specifically for upper eyeliner and lower kajal
+                    // Upper eyeliner points (using only upper eyelid points)
+                    // Left eye upper lid points (from inner to outer corner)
+                    const leftUpperEyeliner = [362, 398, 384, 385, 386, 387, 388, 466];
+                    // Right eye upper lid points (from inner to outer corner)
+                    const rightUpperEyeliner = [133, 173, 157, 158, 159, 160, 161, 246];
                     
-                    if (i === 0) outputCtx.moveTo(x, y);
-                    else outputCtx.lineTo(x, y);
-                });
-                outputCtx.stroke();
-                
-                // Draw right eyebrow
-                outputCtx.beginPath();
-                rightEyebrowPoints.forEach((index, i) => {
-                    const point = landmarks[index];
-                    const x = point.x * outputCanvas.width;
-                    const y = point.y * outputCanvas.height;
-                    
-                    if (i === 0) outputCtx.moveTo(x, y);
-                    else outputCtx.lineTo(x, y);
-                });
-                outputCtx.stroke();
-                
-                outputCtx.restore();
+                    // Lower kajal points (using only lower eyelid points)
+                    // Left eye lower lid points (from inner to outer corner)
+                    const leftKajal = [263, 249, 390, 373, 374, 380, 381, 382];
+                    // Right eye lower lid points (from inner to outer corner)
+                    const rightKajal = [33, 7, 163, 144, 145, 153, 154, 155];
+
+                    outputCtx.save();
+
+                    function drawUpperEyeliner(points, color) {
+                        if (!points || points.length === 0) return;
+
+                        const width = outputCanvas.width * 0.00168;
+                        const opacity = makeupOpacity.upperEyeliner;
+
+                        // Create a temporary canvas for better blending
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = outputCanvas.width;
+                        tempCanvas.height = outputCanvas.height;
+
+                        // Draw main line with varying thickness
+                        tempCtx.beginPath();
+                        let firstPoint = true;
+
+                        // Only use the upper half of the points
+                        const halfPoints = points.slice(0, points.length);
+                        
+                        for (let i = 0; i < halfPoints.length; i++) {
+                            const point = landmarks[halfPoints[i]];
+                            if (!point) continue;
+                            
+                            const x = point.x * outputCanvas.width;
+                            const y = point.y * outputCanvas.height;
+                            
+                            // Vary the curve based on position for more natural look
+                            const position = i / halfPoints.length;
+                            // Adjust curve to be more pronounced in the middle for thicker line
+                            const curve = position < 0.3 ? -width * 1.2 : 
+                                        position < 0.7 ? -width * 2.4 : 
+                                        -width * 1.2;
+
+                            if (firstPoint) {
+                                tempCtx.moveTo(x, y + curve);
+                                firstPoint = false;
+                            } else {
+                                const prevPoint = landmarks[halfPoints[i-1]];
+                                if (!prevPoint) continue;
+                                
+                                const prevX = prevPoint.x * outputCanvas.width;
+                                const prevY = prevPoint.y * outputCanvas.height;
+                                
+                                // Adjust control points for smoother curve
+                                const cp1x = prevX + (x - prevX) * 0.4;
+                                const cp1y = prevY + curve * 0.8;
+                                const cp2x = x - (x - prevX) * 0.4;
+                                const cp2y = y + curve * 0.8;
+                                
+                                tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + curve);
+                            }
+                        }
+
+                        try {
+                            const startPoint = landmarks[halfPoints[0]];
+                            const endPoint = landmarks[halfPoints[halfPoints.length-1]];
+                            if (!startPoint || !endPoint) return;
+
+                            // Create a more complex gradient for realistic look
+                            const gradient = tempCtx.createLinearGradient(
+                                0, startPoint.y * outputCanvas.height,
+                                0, endPoint.y * outputCanvas.height
+                            );
+                            // Adjust gradient stops for more natural fade with increased opacity
+                            gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                            gradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                            gradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                            gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+
+                            tempCtx.strokeStyle = gradient;
+                            tempCtx.lineWidth = width * 3.5; // Increased from 2.5 to 3.5 for thicker line
+                            tempCtx.lineCap = 'round';
+                            tempCtx.lineJoin = 'round';
+                            tempCtx.stroke();
+
+                            // Add a softer inner line with adjusted thickness
+                            tempCtx.beginPath();
+                            firstPoint = true;
+
+                            for (let i = 0; i < halfPoints.length; i++) {
+                                const point = landmarks[halfPoints[i]];
+                                if (!point) continue;
+                                
+                                const x = point.x * outputCanvas.width;
+                                const y = point.y * outputCanvas.height;
+                                const position = i / halfPoints.length;
+                                // Adjust inner curve to be more subtle but proportional to new thickness
+                                const innerCurve = position < 0.3 ? -width * 0.6 : 
+                                                 position < 0.7 ? -width * 1.0 : 
+                                                 -width * 0.6;
+
+                                if (firstPoint) {
+                                    tempCtx.moveTo(x, y + innerCurve);
+                                    firstPoint = false;
+                                } else {
+                                    const prevPoint = landmarks[halfPoints[i-1]];
+                                    if (!prevPoint) continue;
+                                    
+                                    const prevX = prevPoint.x * outputCanvas.width;
+                                    const prevY = prevPoint.y * outputCanvas.height;
+                                    
+                                    const cp1x = prevX + (x - prevX) * 0.4;
+                                    const cp1y = prevY + innerCurve * 0.8;
+                                    const cp2x = x - (x - prevX) * 0.4;
+                                    const cp2y = y + innerCurve * 0.8;
+                                    
+                                    tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + innerCurve);
+                                }
+                            }
+
+                            const innerGradient = tempCtx.createLinearGradient(
+                                0, startPoint.y * outputCanvas.height,
+                                0, endPoint.y * outputCanvas.height
+                            );
+                            // Adjust inner gradient with reduced opacity
+                            innerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+                            innerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
+                            innerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+
+                            tempCtx.strokeStyle = innerGradient;
+                            tempCtx.lineWidth = width * 1.4; // Increased from 1.2 to 1.4 for proportional inner line
+                            tempCtx.stroke();
+
+                            // Apply blur for softer look
+                            tempCtx.filter = 'blur(0.7px)'; // Slightly increased blur for thicker line
+                            tempCtx.globalCompositeOperation = 'source-over';
+                            outputCtx.drawImage(tempCanvas, 0, 0);
+                            tempCtx.filter = 'none';
+                        } catch (error) {
+                            console.error('Error drawing upper eyeliner:', error);
+                        }
+                    }
+
+                    function drawKajal(points, color) {
+                        if (!points || points.length === 0) return;
+
+                        const width = outputCanvas.width * 0.0018;
+                        const opacity = makeupOpacity.kajal;
+
+                        // Create a temporary canvas for better blending
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = outputCanvas.width;
+                        tempCanvas.height = outputCanvas.height;
+
+                        // Draw main line with varying thickness
+                        tempCtx.beginPath();
+                        let firstPoint = true;
+
+                        // Only use the lower half of the points
+                        const halfPoints = points.slice(0, points.length);
+                        
+                        for (let i = 0; i < halfPoints.length; i++) {
+                            const point = landmarks[halfPoints[i]];
+                            if (!point) continue;
+                            
+                            const x = point.x * outputCanvas.width;
+                            const y = point.y * outputCanvas.height;
+                            
+                            // Vary the curve based on position for more natural look
+                            const position = i / halfPoints.length;
+                            // Adjust curve to be more pronounced in the middle
+                            const curve = position < 0.3 ? width * 1.0 : 
+                                        position < 0.7 ? width * 2.0 : 
+                                        width * 1.0;
+
+                            if (firstPoint) {
+                                tempCtx.moveTo(x, y + curve);
+                                firstPoint = false;
+                            } else {
+                                const prevPoint = landmarks[halfPoints[i-1]];
+                                if (!prevPoint) continue;
+                                
+                                const prevX = prevPoint.x * outputCanvas.width;
+                                const prevY = prevPoint.y * outputCanvas.height;
+                                
+                                // Adjust control points for smoother curve
+                                const cp1x = prevX + (x - prevX) * 0.4;
+                                const cp1y = prevY + curve * 0.8;
+                                const cp2x = x - (x - prevX) * 0.4;
+                                const cp2y = y + curve * 0.8;
+                                
+                                tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + curve);
+                            }
+                        }
+
+                        try {
+                            const startPoint = landmarks[halfPoints[0]];
+                            const endPoint = landmarks[halfPoints[halfPoints.length-1]];
+                            if (!startPoint || !endPoint) return;
+
+                            // Create a more complex gradient for realistic look
+                            const gradient = tempCtx.createLinearGradient(
+                                0, startPoint.y * outputCanvas.height,
+                                0, endPoint.y * outputCanvas.height
+                            );
+                            // Adjust gradient stops for more natural fade with reduced opacity
+                            gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                            gradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.9})`);
+                            gradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.9})`);
+                            gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+
+                            tempCtx.strokeStyle = gradient;
+                            tempCtx.lineWidth = width * 3.5; // Slightly thicker for kajal
+                            tempCtx.lineCap = 'round';
+                            tempCtx.lineJoin = 'round';
+                            tempCtx.stroke();
+
+                            // Add a softer inner line
+                            tempCtx.beginPath();
+                            firstPoint = true;
+
+                            for (let i = 0; i < halfPoints.length; i++) {
+                                const point = landmarks[halfPoints[i]];
+                                if (!point) continue;
+                                
+                                const x = point.x * outputCanvas.width;
+                                const y = point.y * outputCanvas.height;
+                                const position = i / halfPoints.length;
+                                // Adjust inner curve to be more subtle
+                                const innerCurve = position < 0.3 ? width * 0.5 : 
+                                                 position < 0.7 ? width * 0.8 : 
+                                                 width * 0.5;
+
+                                if (firstPoint) {
+                                    tempCtx.moveTo(x, y + innerCurve);
+                                    firstPoint = false;
+                                } else {
+                                    const prevPoint = landmarks[halfPoints[i-1]];
+                                    if (!prevPoint) continue;
+                                    
+                                    const prevX = prevPoint.x * outputCanvas.width;
+                                    const prevY = prevPoint.y * outputCanvas.height;
+                                    
+                                    const cp1x = prevX + (x - prevX) * 0.4;
+                                    const cp1y = prevY + innerCurve * 0.8;
+                                    const cp2x = x - (x - prevX) * 0.4;
+                                    const cp2y = y + innerCurve * 0.8;
+                                    
+                                    tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + innerCurve);
+                                }
+                            }
+
+                            const innerGradient = tempCtx.createLinearGradient(
+                                0, startPoint.y * outputCanvas.height,
+                                0, endPoint.y * outputCanvas.height
+                            );
+                            // Adjust inner gradient with reduced opacity
+                            innerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+                            innerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
+                            innerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+
+                            tempCtx.strokeStyle = innerGradient;
+                            tempCtx.lineWidth = width * 1.6;
+                            tempCtx.stroke();
+
+                            // Apply blur for softer look
+                            tempCtx.filter = 'blur(1px)'; // Slightly increased blur for kajal
+                            tempCtx.globalCompositeOperation = 'source-over';
+                            outputCtx.drawImage(tempCanvas, 0, 0);
+                            tempCtx.filter = 'none';
+                        } catch (error) {
+                            console.error('Error drawing kajal:', error);
+                        }
+                    }
+
+                    // Draw upper eyeliner if enabled
+                    if (makeupToggles.upperEyeliner) {
+                        drawUpperEyeliner(leftUpperEyeliner, selectedEyelinerColor);
+                        drawUpperEyeliner(rightUpperEyeliner, selectedEyelinerColor);
+                    }
+
+                    // Draw kajal if enabled
+                    if (makeupToggles.kajal) {
+                        drawKajal(leftKajal, selectedKajalColor);
+                        drawKajal(rightKajal, selectedKajalColor);
+                    }
+
+                    outputCtx.restore();
+                } catch (error) {
+                    console.error('Error in applyEyelinerMakeup:', error);
+                }
             }
             
             // Apply blush
             function applyCheeksMakeup(landmarks, color) {
-                const leftCheekPoints = [117, 118, 119, 123, 147];
-                const rightCheekPoints = [346, 347, 348, 352, 376];
-                
-                function calculateCenter(points) {
-                    const center = { x: 0, y: 0 };
-                    points.forEach(index => {
-                        const point = landmarks[index];
-                        center.x += point.x;
-                        center.y += point.y;
+                if (!landmarks) return;
+
+                try {
+                    const leftCheekPoints = [117, 118, 119, 123, 147];
+                    const rightCheekPoints = [346, 347, 348, 352, 376];
+                    
+                    function calculateCenter(points) {
+                        if (!points || points.length === 0) return null;
+                        
+                        const center = { x: 0, y: 0 };
+                        let validPoints = 0;
+                        
+                        points.forEach(index => {
+                            const point = landmarks[index];
+                            if (point) {
+                                center.x += point.x;
+                                center.y += point.y;
+                                validPoints++;
+                            }
+                        });
+                        
+                        if (validPoints === 0) return null;
+                        
+                        center.x /= validPoints;
+                        center.y /= validPoints;
+                        return center;
+                    }
+                    
+                    const leftCheekCenter = calculateCenter(leftCheekPoints);
+                    const rightCheekCenter = calculateCenter(rightCheekPoints);
+                    
+                    if (!leftCheekCenter || !rightCheekCenter) return;
+                    
+                    const colors = {
+                        'pink': [255, 127, 180],
+                        'peach': [255, 186, 169],
+                        'bronze': [181, 133, 71],
+                        'black': [0, 0, 0]
+                    };
+                    const selectedColor = colors[color] || colors.pink;
+                    
+                    // Adjust opacity based on color and user control
+                    const baseOpacity = color === 'black' ? 
+                        makeupOpacity.cheeks * 0.5 : // Reduce opacity for black color
+                        makeupOpacity.cheeks;        // Use full opacity for other colors
+                    
+                    outputCtx.save();
+                    
+                    // Adjust oval dimensions for more natural cheek shape
+                    const radiusX = outputCanvas.width * 0.045;  // Increased width for more oval shape
+                    const radiusY = outputCanvas.width * 0.065;  // Increased height for more oval shape
+                    
+                    ['left', 'right'].forEach(side => {
+                        const center = side === 'left' ? leftCheekCenter : rightCheekCenter;
+                        const x = center.x * outputCanvas.width;
+                        const y = (center.y * outputCanvas.height) - (outputCanvas.height * 0.015);
+                        
+                        try {
+                            // Create a temporary canvas for better blending
+                            const tempCanvas = document.createElement('canvas');
+                            const tempCtx = tempCanvas.getContext('2d');
+                            tempCanvas.width = outputCanvas.width;
+                            tempCanvas.height = outputCanvas.height;
+                            
+                            // Create a more complex radial gradient for realistic blush
+                            const gradient = tempCtx.createRadialGradient(
+                                x, y, radiusX * 0.15,  // Reduced inner circle for softer center
+                                x, y, radiusX * 1.2   // Increased outer circle for better edge fade
+                            );
+                            
+                            // More natural color stops for blush with softer edges
+                            gradient.addColorStop(0, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity})`);
+                            gradient.addColorStop(0.2, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.9})`);
+                            gradient.addColorStop(0.4, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.7})`);
+                            gradient.addColorStop(0.6, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.4})`);
+                            gradient.addColorStop(0.8, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.2})`);
+                            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                            
+                            tempCtx.fillStyle = gradient;
+                            tempCtx.beginPath();
+                            
+                            // Draw more pronounced oval shape
+                            tempCtx.save();
+                            tempCtx.translate(x, y);
+                            tempCtx.scale(1, radiusY / radiusX); // More pronounced oval shape
+                            tempCtx.arc(0, 0, radiusX, 0, Math.PI * 2);
+                            tempCtx.restore();
+                            
+                            tempCtx.fill();
+
+                            // Adjust mask gradient for softer edges
+                            const maskGradient = tempCtx.createLinearGradient(
+                                x, y - radiusY * 1.3,  // Extended upward
+                                x, y + radiusY * 1.1   // Extended downward
+                            );
+                            maskGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                            maskGradient.addColorStop(0.1, 'rgba(0, 0, 0, 0.1)');
+                            maskGradient.addColorStop(0.3, 'rgba(0, 0, 0, 0.3)');
+                            maskGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)');
+                            maskGradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)');
+                            maskGradient.addColorStop(0.9, 'rgba(0, 0, 0, 0.1)');
+                            maskGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                            // Apply the mask
+                            tempCtx.globalCompositeOperation = 'destination-in';
+                            tempCtx.fillStyle = maskGradient;
+                            tempCtx.fillRect(x - radiusX * 1.5, y - radiusY * 1.5, radiusX * 3, radiusY * 3);
+                            tempCtx.globalCompositeOperation = 'source-over';
+
+                            // Apply stronger blur for natural blending
+                            tempCtx.filter = color === 'black' ? 
+                                'blur(18px 24px)' : // Increased blur for black color
+                                'blur(15px 20px)';  // Increased blur for other colors
+                            outputCtx.drawImage(tempCanvas, 0, 0);
+                            tempCtx.filter = 'none';
+                            
+                            // Add additional soft blur layer for extra edge softening
+                            tempCtx.filter = 'blur(10px)';
+                            tempCtx.globalAlpha = 0.4; // Increased opacity for stronger effect
+                            outputCtx.drawImage(tempCanvas, 0, 0);
+                            tempCtx.filter = 'none';
+                            tempCtx.globalAlpha = 1.0;
+                            
+                        } catch (error) {
+                            console.error('Error applying cheek makeup:', error);
+                        }
                     });
-                    center.x /= points.length;
-                    center.y /= points.length;
-                    return center;
+                    
+                    outputCtx.restore();
+                } catch (error) {
+                    console.error('Error in applyCheeksMakeup:', error);
                 }
-                
-                const leftCheekCenter = calculateCenter(leftCheekPoints);
-                const rightCheekCenter = calculateCenter(rightCheekPoints);
-                
-                const colors = {
-                    'pink': [255, 127, 180],
-                    'peach': [255, 186, 169],
-                    'bronze': [181, 133, 71]
-                };
-                const selectedColor = colors[color] || colors.pink;
-                
-                outputCtx.save();
-                
-                const radius = outputCanvas.width * 0.08;
-                
-                ['left', 'right'].forEach(side => {
-                    const center = side === 'left' ? leftCheekCenter : rightCheekCenter;
-                    const x = center.x * outputCanvas.width;
-                    const y = (center.y * outputCanvas.height) + (outputCanvas.height * 0.02);
-                    
-                    const gradient = outputCtx.createRadialGradient(x, y, radius * 0.3, x, y, radius);
-                    gradient.addColorStop(0, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.3)`);
-                    gradient.addColorStop(0.6, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, 0.15)`);
-                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                    
-                    outputCtx.fillStyle = gradient;
-                    outputCtx.beginPath();
-                    outputCtx.arc(x, y, radius, 0, Math.PI * 2);
-                    outputCtx.fill();
-                });
-                
-                outputCtx.restore();
-            }
-            
-            // Apply earrings
-            function applyEarsMakeup(landmarks, style) {
-                const leftEarPoint = landmarks[234];
-                const rightEarPoint = landmarks[454];
-                
-                const colors = {
-                    'gold': [255, 215, 0],
-                    'silver': [192, 192, 192],
-                    'diamond': [255, 255, 255]
-                };
-                const selectedColor = colors[style] || colors.gold;
-                
-                outputCtx.save();
-                
-                [leftEarPoint, rightEarPoint].forEach(point => {
-                    const x = point.x * outputCanvas.width;
-                    const y = point.y * outputCanvas.height;
-                    const size = outputCanvas.width * 0.015;
-                    
-                    // Main earring
-                    outputCtx.beginPath();
-                    outputCtx.arc(x, y, size, 0, Math.PI * 2);
-                    outputCtx.fillStyle = `rgb(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]})`;
-                    outputCtx.fill();
-                    
-                    // Highlight
-                    outputCtx.beginPath();
-                    outputCtx.arc(x - size/3, y - size/3, size/3, 0, Math.PI * 2);
-                    outputCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                    outputCtx.fill();
-                });
-                
-                outputCtx.restore();
             }
             
             // Download screenshot
@@ -579,7 +902,30 @@
             document.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
                 toggle.addEventListener('change', (e) => {
                     const feature = e.target.id.replace('Toggle', '');
-                    makeupToggles[feature.toLowerCase()] = e.target.checked;
+                    if (feature === 'eyeliner') {
+                        // When main toggle is turned off, turn off both specific toggles
+                        if (!e.target.checked) {
+                            makeupToggles.upperEyeliner = false;
+                            makeupToggles.kajal = false;
+                            document.getElementById('upperEyelinerToggle').checked = false;
+                            document.getElementById('kajalToggle').checked = false;
+                        }
+                    } else if (feature === 'upperEyeliner' || feature === 'kajal') {
+                        // Update the specific toggle
+                        makeupToggles[feature] = e.target.checked;
+                        
+                        // If both specific toggles are off, turn off the main toggle
+                        if (!makeupToggles.upperEyeliner && !makeupToggles.kajal) {
+                            makeupToggles.eyeliner = false;
+                            document.getElementById('eyelinerToggle').checked = false;
+                        } else {
+                            // If either specific toggle is on, turn on the main toggle
+                            makeupToggles.eyeliner = true;
+                            document.getElementById('eyelinerToggle').checked = true;
+                        }
+                    } else {
+                        makeupToggles[feature.toLowerCase()] = e.target.checked;
+                    }
                 });
             });
             
