@@ -187,6 +187,20 @@
             min-width: 40px;
             text-align: right;
         }
+        .thickness-control {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .thickness-slider {
+            flex: 1;
+            max-width: 150px;
+        }
+        .thickness-value {
+            min-width: 40px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -225,6 +239,11 @@
                                 <label for="upperEyelinerOpacity">Opacity:</label>
                                 <input type="range" id="upperEyelinerOpacity" min="0" max="100" value="50" class="opacity-slider">
                                 <span class="opacity-value">50%</span>
+                            </div>
+                            <div class="thickness-control">
+                                <label for="eyelinerThickness">Thickness:</label>
+                                <input type="range" id="eyelinerThickness" min="50" max="200" value="100" class="thickness-slider">
+                                <span class="thickness-value">100%</span>
                             </div>
                             <div class="wing-control">
                                 <label for="wingLength">Wing Length:</label>
@@ -316,12 +335,19 @@
             
             let wingLength = 2.5; // Default wing length (250%)
             let wingOpacity = 0.5; // Default wing opacity (50%)
+            let eyelinerThickness = 1.0; // Default eyeliner thickness (100%)
+            
+            // Setup thickness control
+            document.getElementById('eyelinerThickness').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                eyelinerThickness = value / 100; // Convert percentage to multiplier
+                e.target.nextElementSibling.textContent = `${value}%`;
+            });
             
             // Setup wing length control
             document.getElementById('wingLength').addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
                 wingLength = value / 100; // Convert percentage to multiplier
-                wingOpacity = makeupOpacity.upperEyeliner; // Keep wing opacity same as eyeliner
                 e.target.nextElementSibling.textContent = `${value}%`;
             });
             
@@ -484,7 +510,7 @@
                     function drawUpperEyeliner(points, color, isLeftEye) {
                         if (!points || points.length === 0) return;
 
-                        const width = outputCanvas.width * 0.00168;
+                        const baseWidth = outputCanvas.width * 0.00168 * eyelinerThickness; // Apply thickness multiplier
                         const opacity = makeupOpacity.upperEyeliner;
 
                         // Create a temporary canvas for better blending
@@ -493,192 +519,179 @@
                         tempCanvas.width = outputCanvas.width;
                         tempCanvas.height = outputCanvas.height;
 
-                        // Draw main eyeliner first
-                        tempCtx.beginPath();
-                        let firstPoint = true;
-                        let lastPoint = null;
-                        let secondLastPoint = null;
+                        // Helper function for smooth eyeliner path
+                        function createSmoothEyelinerPath(points, landmarks, isInnerLine = false) {
+                            const path = new Path2D();
+                            const halfPoints = points.slice(0, points.length);
+                            
+                            // Convert points to canvas coordinates
+                            const eyelinerPoints = halfPoints.map(idx => {
+                                const pt = landmarks[idx];
+                                return { x: pt.x * outputCanvas.width, y: pt.y * outputCanvas.height };
+                            });
 
-                        // Only use the upper half of the points
-                        const halfPoints = points.slice(0, points.length);
-                        
-                        for (let i = 0; i < halfPoints.length; i++) {
-                            const point = landmarks[halfPoints[i]];
-                            if (!point) continue;
-                            
-                            const x = point.x * outputCanvas.width;
-                            const y = point.y * outputCanvas.height;
-                            
-                            // Store last two points for wing calculation
-                            secondLastPoint = lastPoint;
-                            lastPoint = { x, y };
-                            
-                            // Vary the curve based on position for more natural look
-                            const position = i / halfPoints.length;
-                            const curve = position < 0.3 ? -width * 1.2 : 
-                                        position < 0.7 ? -width * 2.4 : 
-                                        -width * 1.2;
+                            // Add control points for smoother curve
+                            const controlPoints = [];
+                            for (let i = 0; i < eyelinerPoints.length - 1; i++) {
+                                const current = eyelinerPoints[i];
+                                const next = eyelinerPoints[i + 1];
+                                
+                                // Calculate mid-point
+                                const midX = (current.x + next.x) / 2;
+                                const midY = (current.y + next.y) / 2;
+                                
+                                // Add control points with slight offset for natural curve
+                                const position = i / (eyelinerPoints.length - 1);
+                                const curveOffset = isInnerLine ? 
+                                    (position < 0.25 ? -baseWidth * 0.4 :
+                                     position < 0.5 ? -baseWidth * 0.6 :
+                                     position < 0.75 ? -baseWidth * 0.7 :
+                                     -baseWidth * 0.6) :
+                                    (position < 0.25 ? -baseWidth * 0.8 :
+                                     position < 0.5 ? -baseWidth * 1.4 :
+                                     position < 0.75 ? -baseWidth * 1.8 :
+                                     -baseWidth * 1.6);
 
-                            if (firstPoint) {
-                                tempCtx.moveTo(x, y + curve);
-                                firstPoint = false;
-                            } else {
-                                const prevPoint = landmarks[halfPoints[i-1]];
-                                if (!prevPoint) continue;
-                                
-                                const prevX = prevPoint.x * outputCanvas.width;
-                                const prevY = prevPoint.y * outputCanvas.height;
-                                
-                                const cp1x = prevX + (x - prevX) * 0.4;
-                                const cp1y = prevY + curve * 0.8;
-                                const cp2x = x - (x - prevX) * 0.4;
-                                const cp2y = y + curve * 0.8;
-                                
-                                tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + curve);
+                                controlPoints.push({
+                                    x: midX,
+                                    y: midY + curveOffset,
+                                    tension: 0.5
+                                });
                             }
+
+                            // Draw smooth path using control points
+                            path.moveTo(eyelinerPoints[0].x, eyelinerPoints[0].y + (isInnerLine ? -baseWidth * 0.4 : -baseWidth * 0.8));
+                            
+                            for (let i = 0; i < controlPoints.length; i++) {
+                                const current = eyelinerPoints[i];
+                                const next = eyelinerPoints[i + 1];
+                                const control = controlPoints[i];
+                                
+                                // Calculate control points for bezier curve
+                                const cp1x = current.x + (control.x - current.x) * control.tension;
+                                const cp1y = current.y + (control.y - current.y) * control.tension;
+                                const cp2x = next.x + (control.x - next.x) * control.tension;
+                                const cp2y = next.y + (control.y - next.y) * control.tension;
+                                
+                                path.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, next.x, next.y + (isInnerLine ? -baseWidth * 0.4 : -baseWidth * 0.8));
+                            }
+
+                            return path;
                         }
 
-                        // Draw the main eyeliner with its own opacity
+                        // Draw main eyeliner with smooth path
+                        const mainPath = createSmoothEyelinerPath(points, landmarks);
+                        tempCtx.save();
+                        
+                        // Create gradient for main eyeliner
                         const eyelinerGradient = tempCtx.createLinearGradient(
-                            0, landmarks[halfPoints[0]].y * outputCanvas.height,
-                            0, landmarks[halfPoints[halfPoints.length-1]].y * outputCanvas.height
+                            0, landmarks[points[0]].y * outputCanvas.height,
+                            0, landmarks[points[points.length-1]].y * outputCanvas.height
                         );
-                        eyelinerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
-                        eyelinerGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
-                        eyelinerGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
-                        eyelinerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                        eyelinerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
+                        eyelinerGradient.addColorStop(0.2, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.8})`);
+                        eyelinerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                        eyelinerGradient.addColorStop(0.8, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                        eyelinerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.7})`);
 
+                        // Draw main eyeliner with varying thickness
                         tempCtx.strokeStyle = eyelinerGradient;
-                        tempCtx.lineWidth = width * 3.5;
+                        tempCtx.lineWidth = baseWidth * 3.5;
                         tempCtx.lineCap = 'round';
                         tempCtx.lineJoin = 'round';
-                        tempCtx.stroke();
+                        tempCtx.stroke(mainPath);
 
-                        // Draw inner line for eyeliner
-                        tempCtx.beginPath();
-                        firstPoint = true;
-                        for (let i = 0; i < halfPoints.length; i++) {
-                            const point = landmarks[halfPoints[i]];
-                            if (!point) continue;
-                            
-                            const x = point.x * outputCanvas.width;
-                            const y = point.y * outputCanvas.height;
-                            const position = i / halfPoints.length;
-                            const innerCurve = position < 0.3 ? -width * 0.6 : 
-                                             position < 0.7 ? -width * 1.0 : 
-                                             -width * 0.6;
-
-                            if (firstPoint) {
-                                tempCtx.moveTo(x, y + innerCurve);
-                                firstPoint = false;
-                            } else {
-                                const prevPoint = landmarks[halfPoints[i-1]];
-                                if (!prevPoint) continue;
-                                
-                                const prevX = prevPoint.x * outputCanvas.width;
-                                const prevY = prevPoint.y * outputCanvas.height;
-                                
-                                const cp1x = prevX + (x - prevX) * 0.4;
-                                const cp1y = prevY + innerCurve * 0.8;
-                                const cp2x = x - (x - prevX) * 0.4;
-                                const cp2y = y + innerCurve * 0.8;
-                                
-                                tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + innerCurve);
-                            }
-                        }
-
-                        const innerEyelinerGradient = tempCtx.createLinearGradient(
-                            0, landmarks[halfPoints[0]].y * outputCanvas.height,
-                            0, landmarks[halfPoints[halfPoints.length-1]].y * outputCanvas.height
+                        // Draw inner line with smooth path
+                        const innerPath = createSmoothEyelinerPath(points, landmarks, true);
+                        
+                        // Create gradient for inner line
+                        const innerGradient = tempCtx.createLinearGradient(
+                            0, landmarks[points[0]].y * outputCanvas.height,
+                            0, landmarks[points[points.length-1]].y * outputCanvas.height
                         );
-                        innerEyelinerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
-                        innerEyelinerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
-                        innerEyelinerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+                        innerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.2})`);
+                        innerGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.4})`);
+                        innerGradient.addColorStop(0.6, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
+                        innerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
 
-                        tempCtx.strokeStyle = innerEyelinerGradient;
-                        tempCtx.lineWidth = width * 1.4;
-                        tempCtx.stroke();
-
-                        // Now draw the wing separately if needed
-                        if (lastPoint && secondLastPoint && wingLength > 0) {
-                            // Calculate wing direction and length
-                            const dx = lastPoint.x - secondLastPoint.x;
-                            const dy = lastPoint.y - secondLastPoint.y;
-                            const angle = Math.atan2(dy, dx);
-                            
-                            // Calculate offset for wing starting position
-                            const eyeWidth = Math.sqrt(dx * dx + dy * dy);
-                            const startOffset = eyeWidth * 0.15; // 15% of eye width offset
-                            
-                            // Calculate new starting point for wing
-                            const wingStartX = lastPoint.x + Math.cos(angle) * startOffset;
-                            const wingStartY = lastPoint.y + Math.sin(angle) * startOffset;
-                            
-                            // Adjust wing angle to align with eyeliner curve
-                            const wingAngle = isLeftEye ? 
-                                angle - Math.PI * 0.15 : // Reduced angle for left eye
-                                angle + Math.PI * 0.15;  // Reduced angle for right eye
-                            
-                            // Calculate wing length based on eye width with increased multiplier
-                            const wingSize = eyeWidth * wingLength * 1.2; // Added 1.2 multiplier for extra length
-                            
-                            // Calculate wing end point
-                            const wingEndX = wingStartX + Math.cos(wingAngle) * wingSize;
-                            const wingEndY = wingStartY + Math.sin(wingAngle) * wingSize;
-                            
-                            // Draw wing with its own gradient
-                            const wingGradient = tempCtx.createLinearGradient(
-                                wingStartX, wingStartY,
-                                wingEndX, wingEndY
-                            );
-                            wingGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity})`);
-                            wingGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity})`);
-                            wingGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.95})`);
-                            wingGradient.addColorStop(0.9, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.8})`);
-                            wingGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
-                            
-                            // Draw the wing
-                            tempCtx.beginPath();
-                            tempCtx.moveTo(wingStartX, wingStartY);
-                            
-                            const controlX = wingStartX + (wingEndX - wingStartX) * 0.4 + (isLeftEye ? -width * 5 : width * 5);
-                            const controlY = wingStartY + (wingEndY - wingStartY) * 0.4;
-                            
-                            tempCtx.quadraticCurveTo(controlX, controlY, wingEndX, wingEndY);
-                            tempCtx.lineWidth = width * 3.5;
-                            tempCtx.strokeStyle = wingGradient;
-                            tempCtx.lineCap = 'round';
-                            tempCtx.stroke();
-                            
-                            // Draw inner wing line
-                            const innerWingGradient = tempCtx.createLinearGradient(
-                                wingStartX, wingStartY,
-                                wingEndX, wingEndY
-                            );
-                            innerWingGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.5})`);
-                            innerWingGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.5})`);
-                            innerWingGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.45})`);
-                            innerWingGradient.addColorStop(0.9, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 0.4})`);
-                            innerWingGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
-                            
-                            tempCtx.beginPath();
-                            tempCtx.moveTo(wingStartX, wingStartY);
-                            tempCtx.quadraticCurveTo(
-                                controlX - (isLeftEye ? -width * 2 : width * 2),
-                                controlY,
-                                wingEndX,
-                                wingEndY
-                            );
-                            tempCtx.lineWidth = width * 1.4;
-                            tempCtx.strokeStyle = innerWingGradient;
-                            tempCtx.stroke();
-                        }
+                        // Draw inner line
+                        tempCtx.strokeStyle = innerGradient;
+                        tempCtx.lineWidth = baseWidth * 1.4;
+                        tempCtx.stroke(innerPath);
+                        tempCtx.restore();
 
                         // Apply blur for softer look
                         tempCtx.filter = 'blur(0.7px)';
                         tempCtx.globalCompositeOperation = 'source-over';
                         outputCtx.drawImage(tempCanvas, 0, 0);
                         tempCtx.filter = 'none';
+
+                        // Store last points for wing calculation
+                        const lastPoint = landmarks[points[points.length-1]];
+                        const secondLastPoint = landmarks[points[points.length-2]];
+                        
+                        // Draw wing after eyeliner if enabled
+                        if (lastPoint && secondLastPoint && wingLength > 0) {
+                            // Calculate wing direction and length
+                            const dx = lastPoint.x * outputCanvas.width - secondLastPoint.x * outputCanvas.width;
+                            const dy = lastPoint.y * outputCanvas.height - secondLastPoint.y * outputCanvas.height;
+                            const angle = Math.atan2(dy, dx);
+                            
+                            // Calculate wing points
+                            const eyeWidth = Math.sqrt(dx * dx + dy * dy);
+                            const startOffset = eyeWidth * 0.15;
+                            const wingStartX = lastPoint.x * outputCanvas.width + Math.cos(angle) * startOffset;
+                            const wingStartY = lastPoint.y * outputCanvas.height + Math.sin(angle) * startOffset;
+                            const wingAngle = isLeftEye ? angle - Math.PI * 0.15 : angle + Math.PI * 0.15;
+                            const wingSize = eyeWidth * wingLength * 1.2;
+                            const wingEndX = wingStartX + Math.cos(wingAngle) * wingSize;
+                            const wingEndY = wingStartY + Math.sin(wingAngle) * wingSize;
+
+                            // Draw wing directly on output canvas
+                            outputCtx.save();
+                            
+                            // Calculate triangle points
+                            const baseThickness = baseWidth * 4.8;
+                            const perpAngle = wingAngle + Math.PI / 2;
+                            const baseOffsetX = Math.cos(perpAngle) * (baseThickness / 2);
+                            const baseOffsetY = Math.sin(perpAngle) * (baseThickness / 2);
+                            const baseLeftX = wingStartX - baseOffsetX;
+                            const baseLeftY = wingStartY - baseOffsetY;
+                            const baseRightX = wingStartX + baseOffsetX;
+                            const baseRightY = wingStartY + baseOffsetY;
+
+                            // Draw filled triangle with higher opacity
+                            outputCtx.beginPath();
+                            outputCtx.moveTo(baseLeftX, baseLeftY);
+                            outputCtx.lineTo(baseRightX, baseRightY);
+                            outputCtx.lineTo(wingEndX, wingEndY);
+                            outputCtx.closePath();
+                            
+                            const wingGradient = outputCtx.createLinearGradient(
+                                wingStartX, wingStartY,
+                                wingEndX, wingEndY
+                            );
+                            wingGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 1.5})`);
+                            wingGradient.addColorStop(0.2, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 1.3})`);
+                            wingGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 1.2})`);
+                            wingGradient.addColorStop(0.9, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 1.1})`);
+                            wingGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+                            
+                            outputCtx.fillStyle = wingGradient;
+                            outputCtx.fill();
+
+                            // Draw wing outline
+                            outputCtx.beginPath();
+                            outputCtx.moveTo(baseLeftX, baseLeftY);
+                            outputCtx.lineTo(baseRightX, baseRightY);
+                            outputCtx.lineTo(wingEndX, wingEndY);
+                            outputCtx.closePath();
+                            outputCtx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${wingOpacity * 1.2})`;
+                            outputCtx.lineWidth = baseWidth * 0.8;
+                            outputCtx.stroke();
+                            
+                            outputCtx.restore();
+                        }
                     }
 
                     function drawKajal(points, color) {
@@ -687,76 +700,130 @@
                         const width = outputCanvas.width * 0.0018;
                         const opacity = makeupOpacity.kajal;
 
+                        // Create texture for kajal
+                        function createKajalTexture(width, height) {
+                            const textureCanvas = document.createElement('canvas');
+                            const textureCtx = textureCanvas.getContext('2d');
+                            textureCanvas.width = width;
+                            textureCanvas.height = height;
+                            
+                            // Create pencil-like texture
+                            const imageData = textureCtx.createImageData(width, height);
+                            const data = imageData.data;
+                            
+                            for (let i = 0; i < data.length; i += 4) {
+                                // Make grain much more subtle for smoothness
+                                const noise = Math.random();
+                                const grain = noise < 0.3 ? Math.random() * 0.05 : // Much lighter spots
+                                            noise < 0.7 ? Math.random() * 0.02 : // Even lighter
+                                            Math.random() * 0.01;                // Barely visible
+                                
+                                // Reduce directional variation
+                                const y = Math.floor((i / 4) / width);
+                                const x = (i / 4) % width;
+                                const directionFactor = Math.sin(x * 0.1) * 0.01;
+                                
+                                const finalGrain = grain + directionFactor;
+                                
+                                data[i] = finalGrain * 255;     // R
+                                data[i + 1] = finalGrain * 255; // G
+                                data[i + 2] = finalGrain * 255; // B
+                                data[i + 3] = finalGrain * 255; // A
+                            }
+                            
+                            textureCtx.putImageData(imageData, 0, 0);
+                            return textureCanvas;
+                        }
+
                         // Create a temporary canvas for better blending
                         const tempCanvas = document.createElement('canvas');
                         const tempCtx = tempCanvas.getContext('2d');
                         tempCanvas.width = outputCanvas.width;
                         tempCanvas.height = outputCanvas.height;
 
-                        // Draw main line with varying thickness
+                        // Draw main line with varying thickness and texture
                         tempCtx.beginPath();
                         let firstPoint = true;
-
-                        // Only use the lower half of the points
                         const halfPoints = points.slice(0, points.length);
-                        
-                        for (let i = 0; i < halfPoints.length; i++) {
-                            const point = landmarks[halfPoints[i]];
-                            if (!point) continue;
-                            
-                            const x = point.x * outputCanvas.width;
-                            const y = point.y * outputCanvas.height;
-                            
-                            // Vary the curve based on position for more natural look
-                            const position = i / halfPoints.length;
-                            // Adjust curve to be more pronounced in the middle
-                            const curve = position < 0.3 ? width * 1.0 : 
-                                        position < 0.7 ? width * 2.0 : 
-                                        width * 1.0;
 
-                            if (firstPoint) {
-                                tempCtx.moveTo(x, y + curve);
-                                firstPoint = false;
-                            } else {
-                                const prevPoint = landmarks[halfPoints[i-1]];
-                                if (!prevPoint) continue;
-                                
-                                const prevX = prevPoint.x * outputCanvas.width;
-                                const prevY = prevPoint.y * outputCanvas.height;
-                                
-                                // Adjust control points for smoother curve
-                                const cp1x = prevX + (x - prevX) * 0.4;
-                                const cp1y = prevY + curve * 0.8;
-                                const cp2x = x - (x - prevX) * 0.4;
-                                const cp2y = y + curve * 0.8;
-                                
-                                tempCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y + curve);
+                        // Helper: Catmull-Rom spline interpolation
+                        function catmullRomSpline(pts, numSegments) {
+                            const result = [];
+                            for (let i = 0; i < pts.length - 1; i++) {
+                                const p0 = pts[i === 0 ? i : i - 1];
+                                const p1 = pts[i];
+                                const p2 = pts[i + 1];
+                                const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+                                for (let t = 0; t < numSegments; t++) {
+                                    const tt = t / numSegments;
+                                    const tt2 = tt * tt;
+                                    const tt3 = tt2 * tt;
+                                    const x = 0.5 * ((2 * p1.x) +
+                                        (-p0.x + p2.x) * tt +
+                                        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * tt2 +
+                                        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * tt3);
+                                    const y = 0.5 * ((2 * p1.y) +
+                                        (-p0.y + p2.y) * tt +
+                                        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * tt2 +
+                                        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * tt3);
+                                    result.push({ x, y });
+                                }
                             }
+                            // Add last point
+                            result.push(pts[pts.length - 1]);
+                            return result;
                         }
+
+                        // Gather kajal points in canvas coordinates
+                        const kajalPts = halfPoints.map(idx => {
+                            const pt = landmarks[idx];
+                            return { x: pt.x * outputCanvas.width, y: pt.y * outputCanvas.height };
+                        });
+                        // Interpolate for smoothness
+                        const smoothPts = catmullRomSpline(kajalPts, 12); // 12 segments between each pair
+
+                        // Draw the smooth kajal path
+                        tempCtx.moveTo(smoothPts[0].x, smoothPts[0].y);
+                        for (let i = 1; i < smoothPts.length; i++) {
+                            tempCtx.lineTo(smoothPts[i].x, smoothPts[i].y);
+                        }
+                        tempCtx.lineCap = 'round';
+                        tempCtx.lineJoin = 'round';
 
                         try {
                             const startPoint = landmarks[halfPoints[0]];
                             const endPoint = landmarks[halfPoints[halfPoints.length-1]];
                             if (!startPoint || !endPoint) return;
 
-                            // Create a more complex gradient for realistic look
+                            // Create gradient with natural variation
                             const gradient = tempCtx.createLinearGradient(
                                 0, startPoint.y * outputCanvas.height,
                                 0, endPoint.y * outputCanvas.height
                             );
-                            // Adjust gradient stops for more natural fade with reduced opacity
-                            gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
-                            gradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.9})`);
-                            gradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.9})`);
-                            gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                            
+                            // More natural gradient stops for kajal
+                            gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.7})`);
+                            gradient.addColorStop(0.2, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                            gradient.addColorStop(0.4, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.9})`);
+                            gradient.addColorStop(0.6, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
+                            gradient.addColorStop(0.8, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.85})`);
+                            gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.7})`);
 
                             tempCtx.strokeStyle = gradient;
-                            tempCtx.lineWidth = width * 3.5; // Slightly thicker for kajal
+                            tempCtx.lineWidth = width * 3.5;
                             tempCtx.lineCap = 'round';
                             tempCtx.lineJoin = 'round';
                             tempCtx.stroke();
 
-                            // Add a softer inner line
+                            // Add much more subtle texture layer
+                            const texture = createKajalTexture(tempCanvas.width, tempCanvas.height);
+                            tempCtx.globalCompositeOperation = 'overlay';
+                            tempCtx.globalAlpha = 0.08; // Much lower texture opacity
+                            tempCtx.drawImage(texture, 0, 0);
+                            tempCtx.globalAlpha = 1.0;
+                            tempCtx.globalCompositeOperation = 'source-over';
+
+                            // Add inner line with no random variation
                             tempCtx.beginPath();
                             firstPoint = true;
 
@@ -767,10 +834,12 @@
                                 const x = point.x * outputCanvas.width;
                                 const y = point.y * outputCanvas.height;
                                 const position = i / halfPoints.length;
-                                // Adjust inner curve to be more subtle
+                                
+                                // Vary inner curve for natural look
                                 const innerCurve = position < 0.3 ? width * 0.5 : 
                                                  position < 0.7 ? width * 0.8 : 
                                                  width * 0.5;
+                                // const variation = Math.cos(position * Math.PI * 2) * width * 0.2;
 
                                 if (firstPoint) {
                                     tempCtx.moveTo(x, y + innerCurve);
@@ -791,24 +860,37 @@
                                 }
                             }
 
+                            // Inner line gradient with texture
                             const innerGradient = tempCtx.createLinearGradient(
                                 0, startPoint.y * outputCanvas.height,
                                 0, endPoint.y * outputCanvas.height
                             );
-                            // Adjust inner gradient with reduced opacity
-                            innerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
-                            innerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
-                            innerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.3})`);
+                            innerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.4})`);
+                            innerGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                            innerGradient.addColorStop(0.7, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.6})`);
+                            innerGradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.4})`);
 
                             tempCtx.strokeStyle = innerGradient;
                             tempCtx.lineWidth = width * 1.6;
                             tempCtx.stroke();
 
-                            // Apply blur for softer look
-                            tempCtx.filter = 'blur(1px)'; // Slightly increased blur for kajal
-                            tempCtx.globalCompositeOperation = 'source-over';
+                            // Apply more blur for a softer, smoother look
+                            tempCtx.filter = 'blur(1.2px)';
                             outputCtx.drawImage(tempCanvas, 0, 0);
+                            
+                            // Add a second layer with different texture
+                            tempCtx.filter = 'blur(0.7px)';
+                            tempCtx.globalAlpha = 0.18;
+                            outputCtx.drawImage(tempCanvas, 0, 0);
+                            
+                            // Final very subtle blur for seamless blending
+                            tempCtx.filter = 'blur(0.4px)';
+                            tempCtx.globalAlpha = 0.12;
+                            outputCtx.drawImage(tempCanvas, 0, 0);
+                            
                             tempCtx.filter = 'none';
+                            tempCtx.globalAlpha = 1.0;
+                            
                         } catch (error) {
                             console.error('Error drawing kajal:', error);
                         }
@@ -837,28 +919,47 @@
                 if (!landmarks) return;
 
                 try {
-                    const leftCheekPoints = [117, 118, 119, 123, 147];
-                    const rightCheekPoints = [346, 347, 348, 352, 376];
+                    // Updated points to follow zygomatic arch
+                    const leftCheekPoints = [
+                        123,  // Upper cheek point
+                        50,   // Outer cheek point
+                        36,   // Temple point
+                        206,  // Mid cheek point
+                        187,  // Lower cheek point
+                        147   // Inner cheek point
+                    ];
+                    const rightCheekPoints = [
+                        352,  // Upper cheek point
+                        280,  // Outer cheek point
+                        266,  // Temple point
+                        426,  // Mid cheek point
+                        407,  // Lower cheek point
+                        376   // Inner cheek point
+                    ];
                     
                     function calculateCenter(points) {
                         if (!points || points.length === 0) return null;
                         
+                        // Calculate weighted center based on zygomatic arch shape
+                        const weights = [0.3, 0.2, 0.1, 0.2, 0.1, 0.1]; // Weights for each point
                         const center = { x: 0, y: 0 };
-                        let validPoints = 0;
+                        let totalWeight = 0;
                         
-                        points.forEach(index => {
+                        points.forEach((index, i) => {
                             const point = landmarks[index];
                             if (point) {
-                                center.x += point.x;
-                                center.y += point.y;
-                                validPoints++;
+                                center.x += point.x * weights[i];
+                                center.y += point.y * weights[i];
+                                totalWeight += weights[i];
                             }
                         });
                         
-                        if (validPoints === 0) return null;
+                        if (totalWeight === 0) return null;
                         
-                        center.x /= validPoints;
-                        center.y /= validPoints;
+                        center.x /= totalWeight;
+                        center.y /= totalWeight;
+                        // Move center point higher
+                        center.y -= 0.02; // Increased vertical offset
                         return center;
                     }
                     
@@ -882,78 +983,115 @@
                     
                     outputCtx.save();
                     
-                    // Adjust oval dimensions for more natural cheek shape
-                    const radiusX = outputCanvas.width * 0.045;  // Increased width for more oval shape
-                    const radiusY = outputCanvas.width * 0.065;  // Increased height for more oval shape
+                    // Adjust oval dimensions for zygomatic arch shape
+                    const radiusX = outputCanvas.width * 0.04;  // Width of blush
+                    const radiusY = outputCanvas.width * 0.06;  // Height of blush
                     
+                    // Create noise texture for skin-like effect
+                    function createNoiseTexture(width, height) {
+                        const noiseCanvas = document.createElement('canvas');
+                        const noiseCtx = noiseCanvas.getContext('2d');
+                        noiseCanvas.width = width;
+                        noiseCanvas.height = height;
+                        
+                        const imageData = noiseCtx.createImageData(width, height);
+                        const data = imageData.data;
+                        
+                        for (let i = 0; i < data.length; i += 4) {
+                            const noise = Math.random() * 0.1; // Subtle noise
+                            data[i] = noise * 255;     // R
+                            data[i + 1] = noise * 255; // G
+                            data[i + 2] = noise * 255; // B
+                            data[i + 3] = noise * 255; // A
+                        }
+                        
+                        noiseCtx.putImageData(imageData, 0, 0);
+                        return noiseCanvas;
+                    }
+
                     ['left', 'right'].forEach(side => {
                         const center = side === 'left' ? leftCheekCenter : rightCheekCenter;
                         const x = center.x * outputCanvas.width;
                         const y = (center.y * outputCanvas.height) - (outputCanvas.height * 0.015);
                         
                         try {
-                            // Create a temporary canvas for better blending
                             const tempCanvas = document.createElement('canvas');
                             const tempCtx = tempCanvas.getContext('2d');
                             tempCanvas.width = outputCanvas.width;
                             tempCanvas.height = outputCanvas.height;
                             
-                            // Create a more complex radial gradient for realistic blush
+                            // Create base gradient with softer edges
                             const gradient = tempCtx.createRadialGradient(
-                                x, y, radiusX * 0.15,  // Reduced inner circle for softer center
-                                x, y, radiusX * 1.2   // Increased outer circle for better edge fade
+                                x, y, radiusX * 0.05,  // Even smaller inner circle
+                                x, y, radiusX * 2.2    // Larger outer circle for softer fade
                             );
                             
-                            // More natural color stops for blush with softer edges
-                            gradient.addColorStop(0, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity})`);
-                            gradient.addColorStop(0.2, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.9})`);
-                            gradient.addColorStop(0.4, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.7})`);
-                            gradient.addColorStop(0.6, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.4})`);
-                            gradient.addColorStop(0.8, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.2})`);
+                            // More gradual color stops for softer edges
+                            gradient.addColorStop(0, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.6})`);
+                            gradient.addColorStop(0.15, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.7})`);
+                            gradient.addColorStop(0.3, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.5})`);
+                            gradient.addColorStop(0.5, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.25})`);
+                            gradient.addColorStop(0.7, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.1})`);
+                            gradient.addColorStop(0.9, `rgba(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]}, ${baseOpacity * 0.05})`);
                             gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
                             
                             tempCtx.fillStyle = gradient;
                             tempCtx.beginPath();
                             
-                            // Draw more pronounced oval shape
+                            // Draw elongated oval with softer edges
                             tempCtx.save();
                             tempCtx.translate(x, y);
-                            tempCtx.scale(1, radiusY / radiusX); // More pronounced oval shape
+                            const rotation = side === 'left' ? -Math.PI * 0.15 : Math.PI * 0.15;
+                            tempCtx.rotate(rotation);
+                            tempCtx.scale(1, radiusY / radiusX);
                             tempCtx.arc(0, 0, radiusX, 0, Math.PI * 2);
                             tempCtx.restore();
                             
                             tempCtx.fill();
 
-                            // Adjust mask gradient for softer edges
+                            // Create and apply noise texture
+                            const noiseTexture = createNoiseTexture(tempCanvas.width, tempCanvas.height);
+                            tempCtx.globalCompositeOperation = 'overlay';
+                            tempCtx.globalAlpha = 0.15; // Subtle texture
+                            tempCtx.drawImage(noiseTexture, 0, 0);
+                            tempCtx.globalAlpha = 1.0;
+                            tempCtx.globalCompositeOperation = 'source-over';
+
+                            // Enhanced mask gradient for even softer edges
                             const maskGradient = tempCtx.createLinearGradient(
-                                x, y - radiusY * 1.3,  // Extended upward
-                                x, y + radiusY * 1.1   // Extended downward
+                                x, y - radiusY * 1.4,
+                                x, y + radiusY * 1.0
                             );
                             maskGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-                            maskGradient.addColorStop(0.1, 'rgba(0, 0, 0, 0.1)');
-                            maskGradient.addColorStop(0.3, 'rgba(0, 0, 0, 0.3)');
-                            maskGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)');
-                            maskGradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)');
-                            maskGradient.addColorStop(0.9, 'rgba(0, 0, 0, 0.1)');
+                            maskGradient.addColorStop(0.1, 'rgba(0, 0, 0, 0.05)');
+                            maskGradient.addColorStop(0.3, 'rgba(0, 0, 0, 0.15)');
+                            maskGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.2)');
+                            maskGradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.15)');
+                            maskGradient.addColorStop(0.9, 'rgba(0, 0, 0, 0.05)');
                             maskGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
                             // Apply the mask
                             tempCtx.globalCompositeOperation = 'destination-in';
                             tempCtx.fillStyle = maskGradient;
-                            tempCtx.fillRect(x - radiusX * 1.5, y - radiusY * 1.5, radiusX * 3, radiusY * 3);
+                            tempCtx.fillRect(x - radiusX * 2.5, y - radiusY * 2.5, radiusX * 5, radiusY * 5);
                             tempCtx.globalCompositeOperation = 'source-over';
 
-                            // Apply stronger blur for natural blending
-                            tempCtx.filter = color === 'black' ? 
-                                'blur(18px 24px)' : // Increased blur for black color
-                                'blur(15px 20px)';  // Increased blur for other colors
+                            // Enhanced blur for more natural blending
+                            const blurAmount = color === 'black' ? '14px 18px' : '12px 16px';
+                            tempCtx.filter = `blur(${blurAmount})`;
                             outputCtx.drawImage(tempCanvas, 0, 0);
                             tempCtx.filter = 'none';
                             
-                            // Add additional soft blur layer for extra edge softening
+                            // Additional soft blur layers for extra edge softening
                             tempCtx.filter = 'blur(10px)';
-                            tempCtx.globalAlpha = 0.4; // Increased opacity for stronger effect
+                            tempCtx.globalAlpha = 0.25;
                             outputCtx.drawImage(tempCanvas, 0, 0);
+                            
+                            // Final very soft blur for seamless blending
+                            tempCtx.filter = 'blur(6px)';
+                            tempCtx.globalAlpha = 0.15;
+                            outputCtx.drawImage(tempCanvas, 0, 0);
+                            
                             tempCtx.filter = 'none';
                             tempCtx.globalAlpha = 1.0;
                             
