@@ -237,12 +237,12 @@
                             <label for="upperEyelinerToggle">Upper Eyeliner</label>
                             <div class="opacity-control">
                                 <label for="upperEyelinerOpacity">Opacity:</label>
-                                <input type="range" id="upperEyelinerOpacity" min="0" max="100" value="50" class="opacity-slider">
-                                <span class="opacity-value">50%</span>
+                                <input type="range" id="upperEyelinerOpacity" min="0" max="150" value="70" class="opacity-slider">
+                                <span class="opacity-value">70%</span>
                             </div>
                             <div class="thickness-control">
                                 <label for="eyelinerThickness">Thickness:</label>
-                                <input type="range" id="eyelinerThickness" min="50" max="200" value="100" class="thickness-slider">
+                                <input type="range" id="eyelinerThickness" min="50" max="150" value="100" class="thickness-slider">
                                 <span class="thickness-value">100%</span>
                             </div>
                             <div class="wing-control">
@@ -313,54 +313,63 @@
             // Canvas context
             const outputCtx = outputCanvas.getContext('2d');
             
-            // Makeup state
+            // Makeup state variables
             let currentColors = {
-                eyeliner: 'black',
-                kajal: 'black',
-                cheeks: 'pink'
+                eyeliner: 'black',  // Current selected color for eyeliner
+                kajal: 'black',     // Current selected color for kajal
+                cheeks: 'pink'      // Current selected color for cheeks
             };
 
+            // Toggle states for each makeup feature
             let makeupToggles = {
-                eyeliner: true,
-                upperEyeliner: true,
-                kajal: true,
-                cheeks: true
+                eyeliner: true,      // Master toggle for all eyeliner features
+                upperEyeliner: true, // Toggle for upper eyeliner
+                kajal: true,         // Toggle for kajal (lower eyeliner)
+                cheeks: true         // Toggle for cheeks makeup
             };
 
+            // Opacity settings for each makeup feature (0.0 to 1.0)
             let makeupOpacity = {
-                upperEyeliner: 0.5,  // 50%
-                kajal: 0.37,        // 37%
-                cheeks: 0.34        // 34%
+                upperEyeliner: 0.7,  // 70% opacity for upper eyeliner
+                kajal: 0.37,         // 37% opacity for kajal
+                cheeks: 0.34         // 34% opacity for cheeks
             };
             
-            let wingLength = 2.5; // Default wing length (250%)
-            let wingOpacity = 0.5; // Default wing opacity (50%)
+            // Wing and thickness settings
+            let wingLength = 2.5;    // Default wing length (250% of eye width)
+            let wingOpacity = 0.5;   // Default wing opacity (50%)
             let eyelinerThickness = 1.0; // Default eyeliner thickness (100%)
             
-            // Setup thickness control
+            // Setup thickness control slider
             document.getElementById('eyelinerThickness').addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
-                eyelinerThickness = value / 100; // Convert percentage to multiplier
+                eyelinerThickness = value / 100; // Convert percentage to multiplier (0.5 to 1.5)
                 e.target.nextElementSibling.textContent = `${value}%`;
             });
-            
-            // Setup wing length control
+
+            // Setup wing length control slider
             document.getElementById('wingLength').addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
-                wingLength = value / 100; // Convert percentage to multiplier
+                wingLength = value / 100; // Convert percentage to multiplier (0 to 4.0)
                 e.target.nextElementSibling.textContent = `${value}%`;
             });
+
+            // Face detection and camera state
+            let faceMesh = null;  // MediaPipe Face Mesh instance
+            let camera = null;    // Camera instance for video capture
             
-            // Face detection state
-            let faceMesh = null;
-            let camera = null;
-            
+            /**
+             * Main results handler for face detection and makeup application
+             * Called for each frame when face is detected
+             * @param {Object} results - Face detection results from MediaPipe
+             */
             function onResults(results) {
                 if (!results.multiFaceLandmarks || !results.image) {
                     return;
                 }
 
                 try {
+                    // Set up canvas dimensions to match video
                     outputCanvas.width = video.videoWidth;
                     outputCanvas.height = video.videoHeight;
                     outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
@@ -369,7 +378,7 @@
                     if (results.multiFaceLandmarks.length > 0) {
                         const landmarks = results.multiFaceLandmarks[0];
                         
-                        // Apply each makeup feature if toggled on
+                        // Apply makeup features if enabled
                         if (makeupToggles.eyeliner) {
                             try {
                                 applyEyelinerMakeup(landmarks, currentColors.eyeliner, currentColors.kajal);
@@ -483,11 +492,17 @@
                 });
             });
             
-            // Apply eyeliner and kajal
+            /**
+             * Applies eyeliner and kajal makeup to the detected face
+             * @param {Array} landmarks - Face landmark points from MediaPipe
+             * @param {string} eyelinerColor - Selected color for eyeliner
+             * @param {string} kajalColor - Selected color for kajal
+             */
             function applyEyelinerMakeup(landmarks, eyelinerColor, kajalColor) {
                 if (!landmarks || !makeupToggles.upperEyeliner && !makeupToggles.kajal) return;
 
                 try {
+                    // Color definitions in RGB format
                     const colors = {
                         'black': [0, 0, 0],
                         'purple': [75, 0, 130],
@@ -496,30 +511,41 @@
                     const selectedEyelinerColor = colors[eyelinerColor] || colors.black;
                     const selectedKajalColor = colors[kajalColor] || colors.black;
 
-                    // Define points specifically for upper eyeliner and lower kajal
-                    // Upper eyeliner points (from inner to outer corner)
-                    const leftUpperEyeliner = [362, 398, 384, 385, 386, 387, 388, 466];
-                    const rightUpperEyeliner = [133, 173, 157, 158, 159, 160, 161, 246];
-                    
-                    // Lower kajal points (from inner to outer corner)
-                    const leftKajal = [263, 249, 390, 373, 374, 380, 381, 382];
-                    const rightKajal = [33, 7, 163, 144, 145, 153, 154, 155];
+                    // Define landmark points for eyeliner and kajal
+                    // Points are ordered from inner to outer corner of the eye
+                    const leftUpperEyeliner = [362, 398, 384, 385, 386, 387, 388, 466];  // Left eye upper eyeliner points
+                    const rightUpperEyeliner = [133, 173, 157, 158, 159, 160, 161, 246]; // Right eye upper eyeliner points
+                    const leftKajal = [263, 249, 390, 373, 374, 380, 381, 382];          // Left eye kajal points
+                    const rightKajal = [33, 7, 163, 144, 145, 153, 154, 155];            // Right eye kajal points
 
                     outputCtx.save();
 
+                    /**
+                     * Draws upper eyeliner with wing
+                     * @param {Array} points - Landmark points for the eyeliner
+                     * @param {Array} color - RGB color values
+                     * @param {boolean} isLeftEye - Whether this is the left eye
+                     */
                     function drawUpperEyeliner(points, color, isLeftEye) {
                         if (!points || points.length === 0) return;
 
-                        const baseWidth = outputCanvas.width * 0.00168 * eyelinerThickness; // Apply thickness multiplier
+                        // Calculate base width with thickness multiplier
+                        const baseWidth = outputCanvas.width * 0.00168 * eyelinerThickness;
                         const opacity = makeupOpacity.upperEyeliner;
 
-                        // Create a temporary canvas for better blending
+                        // Create temporary canvas for better blending
                         const tempCanvas = document.createElement('canvas');
                         const tempCtx = tempCanvas.getContext('2d');
                         tempCanvas.width = outputCanvas.width;
                         tempCanvas.height = outputCanvas.height;
 
-                        // Helper function for smooth eyeliner path
+                        /**
+                         * Creates a smooth path for the eyeliner using bezier curves
+                         * @param {Array} points - Landmark points
+                         * @param {Array} landmarks - All face landmarks
+                         * @param {boolean} isInnerLine - Whether this is the inner line
+                         * @returns {Path2D} Smooth path for the eyeliner
+                         */
                         function createSmoothEyelinerPath(points, landmarks, isInnerLine = false) {
                             const path = new Path2D();
                             const halfPoints = points.slice(0, points.length);
@@ -579,15 +605,16 @@
                             return path;
                         }
 
-                        // Draw main eyeliner with smooth path
+                        // Draw main eyeliner with smooth path and gradient
                         const mainPath = createSmoothEyelinerPath(points, landmarks);
                         tempCtx.save();
                         
-                        // Create gradient for main eyeliner
+                        // Create gradient for main eyeliner with varying opacity
                         const eyelinerGradient = tempCtx.createLinearGradient(
                             0, landmarks[points[0]].y * outputCanvas.height,
                             0, landmarks[points[points.length-1]].y * outputCanvas.height
                         );
+                        // Add gradient stops for natural fade effect
                         eyelinerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
                         eyelinerGradient.addColorStop(0.2, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.8})`);
                         eyelinerGradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.95})`);
@@ -601,7 +628,7 @@
                         tempCtx.lineJoin = 'round';
                         tempCtx.stroke(mainPath);
 
-                        // Draw inner line with smooth path
+                        // Draw inner line for depth effect
                         const innerPath = createSmoothEyelinerPath(points, landmarks, true);
                         
                         // Create gradient for inner line
@@ -609,6 +636,7 @@
                             0, landmarks[points[0]].y * outputCanvas.height,
                             0, landmarks[points[points.length-1]].y * outputCanvas.height
                         );
+                        // Add gradient stops for inner line
                         innerGradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.2})`);
                         innerGradient.addColorStop(0.3, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.4})`);
                         innerGradient.addColorStop(0.6, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity * 0.5})`);
@@ -626,22 +654,18 @@
                         outputCtx.drawImage(tempCanvas, 0, 0);
                         tempCtx.filter = 'none';
 
-                        // Store last points for wing calculation
-                        const lastPoint = landmarks[points[points.length-1]];
-                        const secondLastPoint = landmarks[points[points.length-2]];
-                        
-                        // Draw wing after eyeliner if enabled
-                        if (lastPoint && secondLastPoint && wingLength > 0) {
+                        // Calculate wing points and draw wing if enabled
+                        if (wingLength > 0) {
                             // Calculate wing direction and length
-                            const dx = lastPoint.x * outputCanvas.width - secondLastPoint.x * outputCanvas.width;
-                            const dy = lastPoint.y * outputCanvas.height - secondLastPoint.y * outputCanvas.height;
+                            const dx = landmarks[points[points.length-1]].x * outputCanvas.width - landmarks[points[points.length-2]].x * outputCanvas.width;
+                            const dy = landmarks[points[points.length-1]].y * outputCanvas.height - landmarks[points[points.length-2]].y * outputCanvas.height;
                             const angle = Math.atan2(dy, dx);
                             
                             // Calculate wing points
                             const eyeWidth = Math.sqrt(dx * dx + dy * dy);
                             const startOffset = eyeWidth * 0.15;
-                            const wingStartX = lastPoint.x * outputCanvas.width + Math.cos(angle) * startOffset;
-                            const wingStartY = lastPoint.y * outputCanvas.height + Math.sin(angle) * startOffset;
+                            const wingStartX = landmarks[points[points.length-1]].x * outputCanvas.width + Math.cos(angle) * startOffset;
+                            const wingStartY = landmarks[points[points.length-1]].y * outputCanvas.height + Math.sin(angle) * startOffset;
                             const wingAngle = isLeftEye ? angle - Math.PI * 0.15 : angle + Math.PI * 0.15;
                             const wingSize = eyeWidth * wingLength * 1.2;
                             const wingEndX = wingStartX + Math.cos(wingAngle) * wingSize;
@@ -694,6 +718,11 @@
                         }
                     }
 
+                    /**
+                     * Draws kajal (lower eyeliner) with smooth path and texture
+                     * @param {Array} points - Landmark points for the kajal
+                     * @param {Array} color - RGB color values
+                     */
                     function drawKajal(points, color) {
                         if (!points || points.length === 0) return;
 
@@ -896,13 +925,12 @@
                         }
                     }
 
-                    // Draw upper eyeliner if enabled
+                    // Apply makeup based on toggle states
                     if (makeupToggles.upperEyeliner) {
-                        drawUpperEyeliner(leftUpperEyeliner, selectedEyelinerColor, true);  // true for left eye
-                        drawUpperEyeliner(rightUpperEyeliner, selectedEyelinerColor, false); // false for right eye
+                        drawUpperEyeliner(leftUpperEyeliner, selectedEyelinerColor, true);
+                        drawUpperEyeliner(rightUpperEyeliner, selectedEyelinerColor, false);
                     }
 
-                    // Draw kajal if enabled
                     if (makeupToggles.kajal) {
                         drawKajal(leftKajal, selectedKajalColor);
                         drawKajal(rightKajal, selectedKajalColor);
@@ -919,7 +947,7 @@
                 if (!landmarks) return;
 
                 try {
-                    // Updated points to follow zygomatic arch
+                    // Define landmark points for cheeks following zygomatic arch
                     const leftCheekPoints = [
                         123,  // Upper cheek point
                         50,   // Outer cheek point
@@ -937,6 +965,11 @@
                         376   // Inner cheek point
                     ];
                     
+                    /**
+                     * Calculates the center point for cheek makeup with responsive positioning
+                     * @param {Array} points - Landmark points for the cheek
+                     * @returns {Object|null} Center point coordinates or null if invalid
+                     */
                     function calculateCenter(points) {
                         if (!points || points.length === 0) return null;
                         
@@ -958,16 +991,30 @@
                         
                         center.x /= totalWeight;
                         center.y /= totalWeight;
-                        // Move center point higher
-                        center.y -= 0.02; // Increased vertical offset
+                        
+                        // Calculate responsive vertical offset based on viewport width
+                        const viewportWidth = window.innerWidth;
+                        let verticalOffset;
+                        if (viewportWidth <= 480) { // Mobile view
+                            verticalOffset = 0.015; // Smaller offset for mobile
+                        } else if (viewportWidth <= 768) { // Tablet view
+                            verticalOffset = 0.018;
+                        } else { // Desktop view
+                            verticalOffset = 0.02;
+                        }
+                        
+                        // Apply the responsive offset
+                        center.y -= verticalOffset;
                         return center;
                     }
                     
+                    // Calculate center points for both cheeks
                     const leftCheekCenter = calculateCenter(leftCheekPoints);
                     const rightCheekCenter = calculateCenter(rightCheekPoints);
                     
                     if (!leftCheekCenter || !rightCheekCenter) return;
                     
+                    // Color definitions in RGB format
                     const colors = {
                         'pink': [255, 127, 180],
                         'peach': [255, 186, 169],
@@ -976,49 +1023,38 @@
                     };
                     const selectedColor = colors[color] || colors.pink;
                     
-                    // Adjust opacity based on color and user control
+                    // Adjust opacity based on color
                     const baseOpacity = color === 'black' ? 
                         makeupOpacity.cheeks * 0.5 : // Reduce opacity for black color
                         makeupOpacity.cheeks;        // Use full opacity for other colors
                     
                     outputCtx.save();
                     
-                    // Adjust oval dimensions for zygomatic arch shape
-                    const radiusX = outputCanvas.width * 0.04;  // Width of blush
-                    const radiusY = outputCanvas.width * 0.06;  // Height of blush
-                    
-                    // Create noise texture for skin-like effect
-                    function createNoiseTexture(width, height) {
-                        const noiseCanvas = document.createElement('canvas');
-                        const noiseCtx = noiseCanvas.getContext('2d');
-                        noiseCanvas.width = width;
-                        noiseCanvas.height = height;
-                        
-                        const imageData = noiseCtx.createImageData(width, height);
-                        const data = imageData.data;
-                        
-                        for (let i = 0; i < data.length; i += 4) {
-                            const noise = Math.random() * 0.1; // Subtle noise
-                            data[i] = noise * 255;     // R
-                            data[i + 1] = noise * 255; // G
-                            data[i + 2] = noise * 255; // B
-                            data[i + 3] = noise * 255; // A
-                        }
-                        
-                        noiseCtx.putImageData(imageData, 0, 0);
-                        return noiseCanvas;
-                    }
-
+                    // Apply makeup to both cheeks
                     ['left', 'right'].forEach(side => {
                         const center = side === 'left' ? leftCheekCenter : rightCheekCenter;
                         const x = center.x * outputCanvas.width;
-                        const y = (center.y * outputCanvas.height) - (outputCanvas.height * 0.015);
+                        const y = center.y * outputCanvas.height;
                         
                         try {
                             const tempCanvas = document.createElement('canvas');
                             const tempCtx = tempCanvas.getContext('2d');
                             tempCanvas.width = outputCanvas.width;
                             tempCanvas.height = outputCanvas.height;
+                            
+                            // Adjust oval dimensions based on viewport
+                            const viewportWidth = window.innerWidth;
+                            let radiusX, radiusY;
+                            if (viewportWidth <= 480) { // Mobile view
+                                radiusX = outputCanvas.width * 0.045;  // Slightly wider for mobile
+                                radiusY = outputCanvas.width * 0.065;  // Slightly taller for mobile
+                            } else if (viewportWidth <= 768) { // Tablet view
+                                radiusX = outputCanvas.width * 0.042;
+                                radiusY = outputCanvas.width * 0.062;
+                            } else { // Desktop view
+                                radiusX = outputCanvas.width * 0.04;
+                                radiusY = outputCanvas.width * 0.06;
+                            }
                             
                             // Create base gradient with softer edges
                             const gradient = tempCtx.createRadialGradient(
